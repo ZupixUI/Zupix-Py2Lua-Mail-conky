@@ -179,11 +179,11 @@ Instalacja jest niezwykle prosta dzięki graficznemu kreatorowi. **Ręczna edycj
     
     ## Interakcja z Widgetem
 
-    Zmiana układu i pozycji: Uruchom skrypt Zmiana_pozycji_okna_conky_oraz_layoutu.sh.
+    Zmiana układu i pozycji: Uruchom skrypt `Zmiana_pozycji_okna_conky_oraz_layoutu.sh`.
 
-    Filtrowanie kont: Uruchom Zmień_konto.sh.
+    Filtrowanie kont: Uruchom `Zmień_konto.sh`.
 
-    Przewijanie listy maili: Skrypty add_hotkey_mail_up.sh i add_hotkey_mail_down.sh są przeznaczone do przypisania pod globalne skróty klawiszowe w Twoim środowisku graficznym.
+    Przewijanie listy maili: Skrypty `add_hotkey_mail_up.sh` i `add_hotkey_mail_down.sh` są przeznaczone do przypisania pod globalne skróty klawiszowe w Twoim środowisku graficznym.
 
 ## Zależności
 
