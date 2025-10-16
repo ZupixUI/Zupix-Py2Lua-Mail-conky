@@ -1,0 +1,91 @@
+conky.config = {
+
+    -- OGÓLNE I OKNO
+	
+    background              = true,                 -- (true/false) Uruchamia Conky jako proces w tle.
+    use_xft                 = true,                 -- (true/false) Włącza wygładzanie czcionek z użyciem XFT.
+    xftalpha                = 1.0,                  -- (0.0–1.0) Przezroczystość tekstu; 0.0 = przezroczysty, 1.0 = w pełni widoczny.
+    font = 'Noto:size=12',    						-- Czcionka domyślna (nazwa + rozmiar).
+    update_interval         = 0.1,                  -- (liczba) Czas w sekundach między aktualizacjami danych.
+    total_run_times         = 0,                    -- (0 = nieskończoność, X = zakończ po X sekundach).
+
+    -- OKNO CONKY
+
+    own_window              = true,                 -- (true/false) Czy Conky działa jako osobne okno.
+    own_window_type         = 'normal',             -- Typ okna:
+    own_window_title 		= 'Conky_Mail',         --   'normal'    – klasyczne, standardowe okno,
+    							                    --   'desktop'   – osadzone w tle pulpitu, nieinteraktywne,
+                                                    --   'dock'      – przypięte jak pasek narzędzi,
+                                                    --   'panel'     – podobne do dock, różnie wspierane,
+                                                    --   'override'  – bez dekoracji i ignoruje menedżera okien.
+
+    own_window_transparent  = true,                 -- (true/false) Przezroczystość tła (wymaga kompozytora).
+    own_window_argb_visual  = true,                 -- (true/false) Włącza kanał alfa (ARGB) do obsługi przezroczystości.
+
+    -- Parametr definiujący przezroczystość okna Conky (0 = całkowicie przezroczysty).
+    own_window_argb_value   = 0,                    -- (0–255) Poziom przezroczystości: 0 = całkowicie przezroczysty, 255 = pełne krycie.
+    own_window_colour       = '#000000',            -- Kolor tła, jeśli own_window_transparent = false.
+
+    own_window_hints        = 'undecorated,sticky,below,skip_taskbar,skip_pager',
+                                                    -- Właściwości okna (oddzielone przecinkami):
+                                                    --   'undecorated'   – brak ramek i dekoracji okna,
+                                                    --   'sticky'        – widoczne na wszystkich pulpitach,
+                                                    --   'below'         – zawsze pod innymi oknami,
+                                                    --   'skip_taskbar'  – nie pokazuj w pasku zadań,
+                                                    --   'skip_pager'    – nie pokazuj w przełączniku pulpitu.
+
+    double_buffer           = true,                 -- (true/false) Włącza podwójne buforowanie – redukuje migotanie.
+
+    -- STYL I KOLORY
+
+    default_color           = '#ffffff',            -- Kolor domyślny (biały).
+    default_shade_color     = '#000000',            -- Kolor cienia pod tekstem.
+    default_outline_color   = '#000000',            -- Kolor konturu tekstu.
+
+    draw_shades             = true,                 -- (true/false) Rysowanie cieni pod tekstem.
+    draw_outline            = false,                -- (true/false) Rysowanie konturów liter.
+    draw_borders            = false,                -- (true/false) Ramki wokół tekstu.
+    draw_graph_borders      = false,                -- (true/false) Ramki wokół wykresów.
+
+    color1                  = '#ff5555',            -- ${color1} – czerwony (np. alerty).
+    color2                  = '#50fa7b',            -- ${color2} – zielony (np. status OK).
+    color3                  = '#f1fa8c',            -- ${color3} – żółty (np. ostrzeżenia).
+    color4                  = '#bd93f9',            -- ${color4} – fioletowy (np. nagłówki).
+
+    -- WYMIARY I POZYCJONOWANIE
+
+    minimum_width           = 800,                  -- Minimalna szerokość okna (w pikselach). 800
+    minimum_height          = 500,                    -- Minimalna wysokość okna (w pikselach). 500
+    alignment               = 'bottom_right',
+
+    gap_x                   = 5,                   -- Odstęp od lewej/prawej krawędzi ekranu (w pikselach).
+    gap_y                   = 5,                   -- Odstęp od góry/dolnej krawędzi ekranu (w pikselach).
+
+    -- WYDAJNOŚĆ I PRÓBKOWANIE DANYCH
+
+    no_buffers              = true,                 -- (true/false) Pomija buforowaną pamięć RAM w wyświetlaniu.
+    cpu_avg_samples         = 2,                    -- Liczba próbek do uśrednienia użycia CPU.
+    diskio_avg_samples      = 2,                    -- Liczba próbek do uśrednienia danych I/O dysku.
+    net_avg_samples         = 2,                    -- Liczba próbek do uśrednienia transferu sieciowego.
+
+    -- FORMATOWANIE, UTF-8, ZNAKI SPECJALNE
+
+    override_utf8_locale    = true,                 -- (true/false) Wymusza obsługę UTF-8 (dla polskich znaków itp.).
+    uppercase               = false,                -- (true/false) true = cały tekst pisany wielkimi literami.
+    use_spacer              = 'none',               -- Wyrównanie kolumn.
+
+    short_units             = false,                -- (true/false) Skrócone jednostki (np. 1.5k zamiast 1536B).
+    text_buffer_size        = 2048,                 -- Maksymalna długość renderowanego tekstu.
+
+    -- INTERFEJSY SIECIOWE
+
+    if_up_strictness        = 'address',            -- Kryterium aktywności interfejsu sieciowego.
+
+    -- LUA, WTYCZKI I FUNKCJE ZEWNĘTRZNE
+    
+    lua_load = '/home/przemek_mint/Pulpit/Zupix-Py2Lua-Mail-conky-pl_v1.0.0-beta3_TESTY/lua/e-mail.lua',
+    lua_draw_hook_post = 'draw_mail_indicator',
+};
+
+conky.text = [[
+]];
