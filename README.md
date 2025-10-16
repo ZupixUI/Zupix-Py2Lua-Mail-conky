@@ -155,7 +155,7 @@ Projekt jest zorganizowany w sposób modułowy, co ułatwia jego zrozumienie i e
 Instalacja jest niezwykle prosta dzięki graficznemu kreatorowi. **Ręczna edycja plików konfiguracyjnych nie jest potrzebna.**
 
 
-1.  **Sklonuj repozytorium**
+1.  **Sklonuj repozytorium**:
     Otwórz terminal i wklej poniższe komendy. Pierwsza pobierze projekt, a druga wejdzie do jego głównego katalogu z plikami:
     ```bash
     git clone https://github.com/ZupixUI/Zupix-Py2Lua-Mail-conky.git
@@ -163,13 +163,13 @@ Instalacja jest niezwykle prosta dzięki graficznemu kreatorowi. **Ręczna edycj
     ```
     Możesz też pobrać gotową paczkę  - https://github.com/ZupixUI/Zupix-Py2Lua-Mail-conky/releases
 
-2.  **Nadaj uprawnienia do wykonania skryptom**
+2.  **Nadaj uprawnienia do wykonania skryptom**:
     Skrypty sh powinny być oznaczone jako wykonywalne, ale gdyby z jakiś powodów tak nie było, to wykonaj tą prostą komednę która zmieni uprawienia we wszystkich skryptach sh:
     ```bash
     chmod +x *.sh
     ```
 
-3.  **Uruchom instalator** 
+3.  **Uruchom instalator**:
     To jedyny krok, który musisz wykonać. Uruchom pierwszy skrypt `1.Instalacja_zależności.sh`, a reszta zrobi się sama! Poprowadzi Cię on przez cały proces: instalację zależności, konfigurację ścieżek oraz dodawanie kont e-mail za pomocą graficznego menedżera. Po zakończeniu konfiguracji, instalator zaproponuje automatyczne uruchomienie widgetu.
     Skrypty zostały zaprojektowane do uruchamiania bezpośrednio z poziomu środoiwska graficznego, ale jeśli napotkasz jakiś problem z uruchomieniem użyj po prostu:
     ```bash
