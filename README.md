@@ -161,9 +161,10 @@ Instalacja jest niezwykle prosta dzięki graficznemu kreatorowi. **Ręczna edycj
     git clone https://github.com/ZupixUI/Zupix-Py2Lua-Mail-conky.git
     cd Zupix-Py2Lua-Mail-conky/Zupix-Py2Lua-Mail-conky
     ```
+    Możesz też pobrać gotową paczkę  - https://github.com/ZupixUI/Zupix-Py2Lua-Mail-conky/releases
 
 2.  **Nadaj uprawnienia do wykonania skryptom**
-    Ta komenda sprawi, że wszystkie skrypty instalacyjne (`.sh`) będą mogły być uruchamiane:
+    Skrypty sh powinny być oznaczone jako wykonywalne, ale gdyby z jakiś powodów tak nie było, to wykonaj tą prostą komednę która zmieni uprawienia we wszystkich skryptach sh:
     ```bash
     chmod +x *.sh
     ```
