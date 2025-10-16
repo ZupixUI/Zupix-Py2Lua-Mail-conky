@@ -156,10 +156,10 @@ Instalacja jest niezwykle prosta dzięki graficznemu kreatorowi. **Ręczna edycj
 
 
 1.  **Sklonuj repozytorium**
-    Otwórz terminal i wklej poniższe komendy. Pierwsza pobierze projekt, a druga wejdzie do jego katalogu:
+    Otwórz terminal i wklej poniższe komendy. Pierwsza pobierze projekt, a druga wejdzie do jego głównego katalogu z plikami:
     ```bash
-    git clone https://github.com/ZupixUI/Zupix_Py2Lua_Mail_conky.git
-    cd Zupix_Py2Lua_Mail_conky
+    git clone https://github.com/ZupixUI/Zupix-Py2Lua-Mail-conky.git
+    cd Zupix-Py2Lua-Mail-conky/Zupix-Py2Lua-Mail-conky
     ```
 
 2.  **Nadaj uprawnienia do wykonania skryptom**
