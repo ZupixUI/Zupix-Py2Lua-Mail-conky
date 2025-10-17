@@ -133,20 +133,20 @@ To przyjazny dla użytkownika "klej", który spaja cały system. Zestaw skryptó
 Projekt jest zorganizowany w sposób modułowy, co ułatwia jego zrozumienie i ewentualną rozbudowę:
 ```
 .
-├── 1.Instalacja_zależności_v2_beta.sh              # Krok 1: Instalator zależności
-├── 2.Podmiana_ścieżek_bezwzględnych_w_zmiennych.sh # Krok 2: Konfigurator ścieżek
-├── 3.Konfiguracja_kont.sh                          # Krok 3: Menedżer kont e-mail
-├── 4.START_skryptów_oraz_conky.sh                  # Główny skrypt uruchomieniowy z watchdogiem
-├── config                                          # Pliki konfiguracyjne
-│   ├── accounts.json                               # Dane kont (dla backendu)
-│   └── mail_conky_max                              # Opcjonalny limit maili na liście
-├── conkyrc_mail                                    # Główny plik konfiguracyjny Conky
-├── icons                                           # Ikony używane przez widget
-├── lua                                             # Skrypty frontendu (Lua)
-│   └── e-mail.lua                                  # Główna logika wizualna widgetu
-├── py                                              # Skrypty backendu (Python)
-│   └── python_mail_conky_lua.py                    # Główny skrypt pobierający maile
-└── sound                                           # Pliki dźwiękowe dla powiadomień
+├── 1.Instalacja_zależności.sh                       # Krok 1: Instalator zależności
+├── 2.Podmiana_ścieżek_bezwzględnych_w_zmiennych.sh  # Krok 2: Konfigurator ścieżek
+├── 3.Konfiguracja_kont.sh                           # Krok 3: Menedżer kont e-mail
+├── 4.START_skryptów_oraz_conky.sh                   # Główny skrypt uruchomieniowy z watchdogiem
+├── config                                           # Pliki konfiguracyjne
+│   ├── accounts.json                                # Dane kont (dla backendu)
+│   └── mail_conky_max                               # Opcjonalny limit maili na liście
+├── conkyrc_mail                                     # Główny plik konfiguracyjny Conky
+├── icons                                            # Ikony używane przez widget
+├── lua                                              # Skrypty frontendu (Lua)
+│   └── e-mail.lua                                   # Główna logika wizualna widgetu
+├── py                                               # Skrypty backendu (Python)
+│   └── python_mail_conky_lua.py                     # Główny skrypt pobierający maile
+└── sound                                            # Pliki dźwiękowe dla powiadomień
 ```
 ---
 
