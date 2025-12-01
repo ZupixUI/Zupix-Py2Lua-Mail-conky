@@ -1,10 +1,16 @@
 #!/bin/bash
-# 1.Instalacja_zależności.sh  (v1.0-b)
-# - Auto-detekcja dystrybucji, instalacja zależności Conky/Lua/Python venv
-# - Odporny tryb bez Zenity: otwierany terminal z instrukcją i auto-instalacją
-# - Uniwersalna detekcja wersji Lua w Conky (ldd: liblua*.so.5.x / luajit)
-# - Neutralne komunikaty: runtime (linkowanie) vs polecenia Lua (PATH)
-# - Poprawione is_pkg_installed: najpierw command -v (np. Fedora wget2)
+# 1.Instalacja_zależności.sh (v1.5.1 - OpenMandriva Zenity Fix)
+#
+# ZMIANY:
+# - Dodano blok dla OpenMandriva Lx.
+# - Specjalna obsługa Conky (pobieranie z repo cooker w PREINSTALL_CMD).
+# - Dodano obsługę OpenMandriva w trybie awaryjnym (brak Zenity).
+# - v1.5: Dodano ostrzeżenie dla użytkowników OpenMandriva o instalacji z repo cooker.
+# - v1.5.1: Poprawka błędu Zenity (zmiana --warning na --question), aby obsłużyć niestandardowe przyciski.
+
+# ==========================================
+# 1. KONFIGURACJA ZMIENNYCH
+# ==========================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WIDGET_DIR="$SCRIPT_DIR/lua"
@@ -50,6 +56,11 @@ if [ -z "$BASH_VERSION" ]; then
     exec bash "$0" "$@"
 fi
 
+
+# ==========================================
+# 2. OBSŁUGA TERMINALA
+# ==========================================
+
 # --- Wybór emulatora terminala (nie używamy systemowej zmiennej TERM) ---
 TERMINALS=(gnome-terminal xfce4-terminal konsole tilix mate-terminal x-terminal-emulator xterm)
 TERM_CMD=""
@@ -86,19 +97,27 @@ open_terminal_blank() {
     esac
 }
 
+
+# ==========================================
+# 3. DETEKCJA PAKIETÓW
+# ==========================================
+
 # --- Detekcja pakietów (per menedżer pakietów) ---
 is_pkg_installed() {
     local pkg="$1"
 
     # Specjalny przypadek: python3-venv (na Debian/Ubuntu/Mint)
-    # Nie ma własnego pliku wykonywalnego; nie można go sprawdzić przez command -v
     if [[ "$PM" == "apt-get" && "$pkg" == "python3-venv" ]]; then
         dpkg -s python3-venv &>/dev/null && return 0 || return 1
     fi
 
-    # Szybka ścieżka: jeśli istnieje polecenie o nazwie jak "pakiet" (np. wget -> dostarczany też przez wget2)
-    if command -v "${pkg%%-*}" &>/dev/null; then
-        return 0
+    # POPRAWKA: Specjalny przypadek dla python-ensurepip.
+    # Pomijamy command -v, bo inaczej skrypt wykryje "python" i uzna, że pakiet jest obecny.
+    if [[ "$pkg" != "python-ensurepip" ]]; then
+        # Szybka ścieżka: jeśli istnieje polecenie o nazwie jak "pakiet"
+        if command -v "${pkg%%-*}" &>/dev/null; then
+            return 0
+        fi
     fi
 
     # Sprawdzenie w menedżerze pakietów
@@ -113,7 +132,6 @@ is_pkg_installed() {
             rpm -q "$pkg" &>/dev/null
             ;;
         zypper)
-            # rpm -q zwykle wystarcza; fallback przez zypper gdyby nazwa różniła się od RPM Name:
             rpm -q "$pkg" &>/dev/null || zypper se --installed-only "$pkg" 2>/dev/null | grep -q "\b$pkg\b"
             ;;
         eopkg)
@@ -124,6 +142,10 @@ is_pkg_installed() {
             ;;
     esac
 }
+
+# ==========================================
+# 4. TRYB AWARYJNY: BRAK ZENITY
+# ==========================================
 
 # --- TRYB AWARYJNY: Zenity nie jest zainstalowane (otwieramy terminal z instrukcją) ---
 if ! command -v zenity &>/dev/null; then
@@ -145,6 +167,10 @@ if ! command -v zenity &>/dev/null; then
         arch*|manjaro*|garuda*|endeavouros|artix)
             PRE_CMD="sudo pacman -Sy"
             INSTALL_CMD="sudo pacman -S --noconfirm zenity gtk4 libadwaita"
+            ;;
+        openmandriva*)
+            PRE_CMD="sudo dnf makecache"
+            INSTALL_CMD="sudo dnf install -y zenity-gtk"
             ;;
         linuxmint|ubuntu|debian)
             PRE_CMD="sudo apt-get update"
@@ -172,44 +198,79 @@ if ! command -v zenity &>/dev/null; then
             ;;
     esac
 
-# Jeżeli nie mamy pewnej nazwy dystrybucji, poproś użytkownika o wybór w terminalu
-if [ "$DISTRO" = "ask" ]; then
-    RUN_IN_TERM='
-        # UWAGA: bez "set -e", żeby druga komenda wykonała się nawet, gdy pierwsza padnie
+    # Jeżeli nie mamy pewnej nazwy dystrybucji, poproś użytkownika o wybór w terminalu
+    if [ "$DISTRO" = "ask" ]; then
+        RUN_IN_TERM='
+            # UWAGA: bez "set -e", żeby druga komenda wykonała się nawet, gdy pierwsza padnie
+            echo
+            echo "Brakuje wymaganego programu ZENITY."
+            echo
+            echo "Wybierz swoją dystrybucję:"
+            echo "  1) Debian/Ubuntu/Mint"
+            echo "  2) Arch/Manjaro/Garuda/EndeavourOS/Artix"
+            echo "  3) Fedora"
+            echo "  4) openSUSE"
+            echo "  5) Solus"
+            echo "  6) OpenMandriva"
+            echo
+            read -rp "Numer [1-6]: " CH
+            case "$CH" in
+                2) PRE_CMD="sudo pacman -Sy";       INSTALL_CMD="sudo pacman -S --noconfirm zenity gtk4 libadwaita";;
+                3) PRE_CMD="sudo dnf makecache";     INSTALL_CMD="sudo dnf install -y zenity";;
+                4) PRE_CMD="sudo zypper refresh";    INSTALL_CMD="sudo zypper install -y zenity";;
+                5) PRE_CMD="sudo eopkg update-repo"; INSTALL_CMD="sudo eopkg install zenity";;
+                6) PRE_CMD="sudo dnf makecache";     INSTALL_CMD="sudo dnf install -y zenity-gtk";;
+                *) PRE_CMD="sudo apt-get update";    INSTALL_CMD="sudo apt-get install -y zenity";;
+            esac
+            echo
+            echo "Brakuje wymaganego programu ZENITY."
+            echo "W nowym oknie terminala zostanie uruchomione polecenie:"
+            echo
+            echo "    ${PRE_CMD} ; ${INSTALL_CMD}"
+            echo
+            read -rp "Naciśnij Enter, aby rozpocząć instalację..." _
+            # Uruchom obie komendy niezależnie (druga nie zależy od kodu wyjścia pierwszej)
+            ${PRE_CMD} ; ${INSTALL_CMD}
+            echo
+            echo "--- Instalacja zakończona. Naciśnij Enter, aby zamknąć terminal ---"
+            read -r _
+        '
+        pid=$(open_in_terminal_async "bash -lc $(printf %q "$RUN_IN_TERM")" 0)
+
+        # Czekaj, aż zenity wejdzie do PATH lub aż terminal się zamknie (maks 10 min)
+        for _ in $(seq 1 600); do
+            if command -v zenity &>/dev/null; then
+                exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"
+            fi
+            if ! kill -0 "$pid" 2>/dev/null; then
+                break
+            fi
+            sleep 1
+        done
+
+        if command -v zenity &>/dev/null; then
+            exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"
+        fi
+        exit 0
+    fi
+
+    # Normalna ścieżka: znamy dystrybucję – pokaż komunikat w terminalu i zainstaluj
+    RUN_IN_TERM="
         echo
-        echo "Brakuje wymaganego programu ZENITY."
+        echo 'Brakuje wymaganego programu ZENITY - (GUI).'
+        echo 'Zostanie uruchomione następujące polecenie instalacyjne:'
         echo
-        echo "Wybierz swoją dystrybucję:"
-        echo "  1) Debian/Ubuntu/Mint"
-        echo "  2) Arch/Manjaro/Garuda/EndeavourOS/Artix"
-        echo "  3) Fedora"
-        echo "  4) openSUSE"
-        echo "  5) Solus"
+        echo '    ${PRE_CMD} ; ${INSTALL_CMD}'
         echo
-        read -rp "Numer [1-5]: " CH
-        case "$CH" in
-            2) PRE_CMD="sudo pacman -Sy";       INSTALL_CMD="sudo pacman -S --noconfirm zenity gtk4 libadwaita";;
-            3) PRE_CMD="sudo dnf makecache";     INSTALL_CMD="sudo dnf install -y zenity";;
-            4) PRE_CMD="sudo zypper refresh";    INSTALL_CMD="sudo zypper install -y zenity";;
-            5) PRE_CMD="sudo eopkg update-repo"; INSTALL_CMD="sudo eopkg install zenity";;
-            *) PRE_CMD="sudo apt-get update";    INSTALL_CMD="sudo apt-get install -y zenity";;
-        esac
-        echo
-        echo "Brakuje wymaganego programu ZENITY."
-        echo "W nowym oknie terminala zostanie uruchomione polecenie:"
-        echo
-        echo "    ${PRE_CMD} ; ${INSTALL_CMD}"
-        echo
-        read -rp "Naciśnij Enter, aby rozpocząć instalację..." _
+        read -rp 'Naciśnij Enter, aby rozpocząć instalację...' _
         # Uruchom obie komendy niezależnie (druga nie zależy od kodu wyjścia pierwszej)
         ${PRE_CMD} ; ${INSTALL_CMD}
         echo
-        echo "--- Instalacja zakończona. Naciśnij Enter, aby zamknąć terminal ---"
+        echo '--- Instalacja zenity zakończona. Naciśnij Enter, aby zamknąć terminal i kontynuować instalację pozostałych komponentów w trybie GUI. ---'
         read -r _
-    '
+    "
     pid=$(open_in_terminal_async "bash -lc $(printf %q "$RUN_IN_TERM")" 0)
 
-    # Czekaj, aż zenity wejdzie do PATH lub aż terminal się zamknie (maks 10 min)
     for _ in $(seq 1 600); do
         if command -v zenity &>/dev/null; then
             exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"
@@ -226,38 +287,11 @@ if [ "$DISTRO" = "ask" ]; then
     exit 0
 fi
 
-# Normalna ścieżka: znamy dystrybucję – pokaż komunikat w terminalu i zainstaluj
-RUN_IN_TERM="
-    echo
-    echo 'Brakuje wymaganego programu ZENITY - (GUI).'
-    echo 'Zostanie uruchomione następujące polecenie instalacyjne:'
-    echo
-    echo '    ${PRE_CMD} ; ${INSTALL_CMD}'
-    echo
-    read -rp 'Naciśnij Enter, aby rozpocząć instalację...' _
-    # Uruchom obie komendy niezależnie (druga nie zależy od kodu wyjścia pierwszej)
-    ${PRE_CMD} ; ${INSTALL_CMD}
-    echo
-    echo '--- Instalacja zenity zakończona. Naciśnij Enter, aby zamknąć terminal i kontynuować instalację pozostałych komponentów w trybie GUI. ---'
-    read -r _
-"
-pid=$(open_in_terminal_async "bash -lc $(printf %q "$RUN_IN_TERM")" 0)
 
-for _ in $(seq 1 600); do
-    if command -v zenity &>/dev/null; then
-        exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"
-    fi
-    if ! kill -0 "$pid" 2>/dev/null; then
-        break
-    fi
-    sleep 1
-done
+# ==========================================
+# 5. WYKRYWANIE DYSTRYBUCJI
+# ==========================================
 
-if command -v zenity &>/dev/null; then
-    exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"
-fi
-exit 0
-fi
 # --- Wykrywanie dystrybucji ---
 if ! command -v lsb_release &>/dev/null; then
     zenity --warning --width=480 --text="❗ <b>Nie znaleziono polecenia <tt>lsb_release</tt> w systemie.</b>\n\nTo polecenie służy do automatycznego wykrywania wersji systemu Linux przez skrypt.\n\nW kolejnym kroku <b>musisz wybrać ręcznie swoją dystrybucję z listy</b>.\n\nJeśli nie ma jej na liście, wybierz opcję 'Brak systemu na liście'."
@@ -275,7 +309,7 @@ if [ "$DISTRO" = "Unknown" ]; then
       --column="" --column="Dystrybucja" \
       TRUE "Fedora" FALSE "Ubuntu" FALSE "Debian" FALSE "LinuxMint" \
       FALSE "Arch" FALSE "Manjaro" FALSE "Garuda" FALSE "EndeavourOS" \
-      FALSE "Artix" FALSE "openSUSE" FALSE "Solus" FALSE "NixOS" \
+      FALSE "Artix" FALSE "openSUSE" FALSE "Solus" FALSE "OpenMandriva" FALSE "NixOS" \
       FALSE "Brak systemu na liście"
   )
   DISTRO=$(echo "$DISTRO_LABEL" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
@@ -284,6 +318,11 @@ if [ "$DISTRO" = "Unknown" ]; then
   fi
   VERSION="0"
 fi
+
+
+# ==========================================
+# 6. INSTALACJA NOTIFY-SEND
+# ==========================================
 
 # --- notify-send ---
 DISTRO=$(echo "$DISTRO" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
@@ -294,6 +333,7 @@ if ! command -v notify-send &>/dev/null; then
         arch*|manjaro*|garuda*|endeavouros|artix) PKG_NOTIFY="libnotify";       INSTALL_NOTIFY="sudo pacman -S --noconfirm $PKG_NOTIFY" ;;
         opensuse*|suse*)                          PKG_NOTIFY="libnotify-tools"; INSTALL_NOTIFY="sudo zypper install -y $PKG_NOTIFY" ;;
         solus)                                    PKG_NOTIFY="libnotify";       INSTALL_NOTIFY="sudo eopkg install $PKG_NOTIFY" ;;
+        openmandriva*)                            PKG_NOTIFY="libnotify";       INSTALL_NOTIFY="sudo dnf install -y $PKG_NOTIFY" ;;
         nixos) error_exit "Na NixOS zainstaluj notify-send przez configuration.nix" "notify-send" ;;
         *)     PKG_NOTIFY="libnotify-bin";        INSTALL_NOTIFY="sudo apt-get install -y $PKG_NOTIFY" ;;
     esac
@@ -328,6 +368,11 @@ if ! command -v notify-send &>/dev/null; then
     exec "$0" "$@"
     exit 0
 fi
+
+
+# ==========================================
+# 7. KONFIGURACJA MENEDŻERA PAKIETÓW
+# ==========================================
 
 # --- Mapa dystrybucji -> PM i pakiety ---
 case "$DISTRO" in
@@ -371,6 +416,31 @@ case "$DISTRO" in
     fi
     REQUIRED_PACKAGES=(conky wget lua lua-devel jq "$EMOJI_PKG")
     ;;
+  openmandriva*)
+    # --- DODANO OSTRZEŻENIE DLA OPENMANDRIVA COOKER (ZMIANA NA --question) ---
+    trap - ERR
+    zenity --question \
+        --width=550 \
+        --title="Ostrzeżenie OpenMandriva Lx" \
+        --text="⚠️ <big><b>Wykryto system OpenMandriva.</b></big>\n\nObecne wersje pakietu <b>conky</b> w oficjalnych repozytoriach stabilnych (Rome/Rock) są uszkodzone (brak obsługi Cairo/Lua).\n\nAby widget działał poprawnie, instalator spróbuje pobrać pakiet <tt>conky</tt> z repozytorium eksperymentalnego <b>cooker</b>.\n\nCzy zgadzasz się na instalację pakietu z repozytorium Cooker?" \
+        --ok-label="Tak, zgadzam się" \
+        --cancel-label="Anuluj" \
+        --icon-name="dialog-warning"
+
+    if [ $? -ne 0 ]; then
+        zenity_info_or_exit "❗ <b>Przerwano instalację.</b>\n\nUżytkownik nie wyraził zgody na instalację z repozytorium Cooker." 400
+        exit 0
+    fi
+    trap 'error_exit "Nieoczekiwany błąd w skrypcie!" "trap"' ERR
+    # --------------------------------------------------
+
+    PM="dnf"
+    INSTALL="sudo $PM install -y"
+    # TRIK: Przed główną instalacją sprawdzamy czy conky jest obecne.
+    # Jeśli nie -> instalujemy je z repo cooker. Reszta pakietów pójdzie standardowo.
+    PREINSTALL_CMD="if ! rpm -q conky &>/dev/null; then echo 'Instalacja conky z repo cooker...'; sudo dnf install -y conky --enablerepo=cooker-x86_64,cooker-x86_64-extra; fi; sudo dnf makecache"
+    REQUIRED_PACKAGES=(conky wget lua jq zenity-gtk fonts-ttf-noto-emoji python-ensurepip)
+    ;;
   arch*|manjaro*|garuda*|endeavouros|artix)
     PM="pacman"; INSTALL="sudo $PM -S --noconfirm --needed"
     PREINSTALL_CMD="sudo pacman -Sy"
@@ -400,7 +470,7 @@ case "$DISTRO" in
     if command -v apt-get &>/dev/null; then
 	  PM="apt-get"; INSTALL="sudo $PM install -y"; PREINSTALL_CMD="sudo apt-get update"
 	  REQUIRED_PACKAGES=(conky-all wget python3-venv jq fonts-noto-color-emoji)
-	
+
 	  # Preferuj 5.4 tylko jeśli realnie jest w repo (Ubuntu 22.04+, Debian 11+ itd.)
 	if apt-cache policy lua5.4 2>/dev/null | grep -q 'Candidate:[[:space:]]\+[0-9]'; then
   	  REQUIRED_PACKAGES+=(lua5.4 liblua5.4-dev)
@@ -436,6 +506,11 @@ case "$DISTRO" in
     ;;
 esac
 
+
+# ==========================================
+# 8. GŁÓWNA PĘTLA INSTALACJI ZALEŻNOŚCI
+# ==========================================
+
 # --- BLOK INSTALACJI ZALEŻNOŚCI Z „OKNEM PODTRZYMUJĄCYM” ---
 FIRST_MISSING_SCREEN=1
 
@@ -446,27 +521,51 @@ for pkg in "${REQUIRED_PACKAGES[@]}"; do
     fi
 done
 
+# Funkcja obsługująca tryb ręczny z dodatkowym przyciskiem
 manual_install_loop() {
     local CMD="$1"
     local PKG_TXT="$2"
     while :; do
         trap - ERR
         local RESP
+
+        # Wyświetlenie okna z przyciskiem "Nie sprawdzaj zależności"
         RESP=$(zenity --question \
             --width=720 \
             --ok-label="OK" \
             --cancel-label="Anuluj" \
             --extra-button="Otwórz terminal" \
+            --extra-button="Nie sprawdzaj zależności" \
             --text="<big><b>Tryb awaryjny: instalacja ręczna.</b></big>\n\nBrakujące pakiety:\n<b><tt>${PKG_TXT}</tt></b>\n\nUruchom w terminalu następujące polecenie:\n<b><tt>${CMD}</tt></b>\n\nKliknij <b>Otwórz terminal</b>, aby otworzyć pusty terminal.\nPo instalacji kliknij <b>OK</b>, a skrypt sprawdzi zależności.")
+
         local code=$?
         trap 'error_exit "Nieoczekiwany błąd w skrypcie!" "trap"' ERR
 
         if [ "$code" -eq 0 ]; then
             break
+
         elif [ "$RESP" = "Otwórz terminal" ]; then
             open_terminal_blank
             sleep 0.3
             continue
+
+        elif [ "$RESP" = "Nie sprawdzaj zależności" ]; then
+            # Pytanie potwierdzające pominięcie weryfikacji
+            trap - ERR
+            if zenity --question \
+                --width=550 \
+                --title="Potwierdzenie pominięcia" \
+                --text="<big>⚠️ <b>Czy na pewno chcesz pominąć sprawdzanie zależności?</b></big>\n\n<span foreground='red'>Pominięcie tego kroku oznacza, że skrypt nie zweryfikuje, czy wymagane pakiety (Conky, Lua, Wget itp.) są zainstalowane.</span>\n\nJeśli ich brakuje, widżet nie uruchomi się poprawnie lub wystąpią błędy.\n\nCzy jesteś świadomy ryzyka i chcesz kontynuować?"; then
+
+                # Użytkownik kliknął "Tak" - zwracamy kod 2
+                # Ważne: To nie jest błąd, tylko sygnał do pominięcia.
+                return 2
+            else
+                # Użytkownik kliknął "Nie" (Anuluj) - wracamy do poprzedniego okna
+                trap 'error_exit "Nieoczekiwany błąd w skrypcie!" "trap"' ERR
+                continue
+            fi
+
         elif [ "$code" -eq 1 ]; then
             zenity_info_or_exit "⛔ <b>Skrypt został przerwany przez użytkownika.</b>\n\nPamiętaj o zainstalowaniu zależności:\n<tt>${CMD}</tt>" 520
             exit 0
@@ -528,8 +627,13 @@ if [ ${#MISSING_ON_START[@]} -ne 0 ]; then
                 if [ "$hold_code" -eq 0 ]; then
                     break
                 elif [ "$HOLD_RESPONSE" = "Tryb awaryjny" ]; then
-                    manual_install_loop "$INSTALL_CMD" "${MISSING_NOW[*]}"
+
+                    # POPRAWKA: Użycie konstrukcji || { ... } zapobiega uruchomieniu trap ERR przy return 2
+                    manual_install_loop "$INSTALL_CMD" "${MISSING_NOW[*]}" || {
+                        if [ $? -eq 2 ]; then break 2; fi
+                    }
                     continue
+
                 elif [ "$hold_code" -eq 1 ]; then
                     zenity_info_or_exit "❗ <b>Przerwano instalację pakietów.</b>\n\nSkrypt kończy działanie." 520
                     exit 0
@@ -541,8 +645,13 @@ if [ ${#MISSING_ON_START[@]} -ne 0 ]; then
             continue
         elif [ "$RESPONSE" = "Tryb awaryjny" ]; then
             INSTALL_CMD="$PREINSTALL_CMD ; $INSTALL ${MISSING_NOW[*]}"
-            manual_install_loop "$INSTALL_CMD" "${MISSING_NOW[*]}"
+
+            # POPRAWKA: Użycie konstrukcji || { ... } zapobiega uruchomieniu trap ERR przy return 2
+            manual_install_loop "$INSTALL_CMD" "${MISSING_NOW[*]}" || {
+                if [ $? -eq 2 ]; then break; fi
+            }
             continue
+
         elif [ "$exit_code" -eq 1 ]; then
             INSTALL_CMD="$PREINSTALL_CMD ; $INSTALL ${MISSING_NOW[*]}"
             zenity_info_or_exit "⛔ <b>Skrypt został przerwany przez użytkownika.</b>\n\nPamiętaj o zainstalowaniu zależności:\n<tt>$INSTALL_CMD</tt>" 520
@@ -552,6 +661,11 @@ if [ ${#MISSING_ON_START[@]} -ne 0 ]; then
         fi
     done
 fi
+
+
+# ==========================================
+# 9. DETEKCJA WSPARCIA LUA W CONKY
+# ==========================================
 
 # --- WYKRYCIE WSPARCIA LUA W CONKY (ldd) ---
 CONKY_VER="$(conky -v 2>/dev/null || true)"
@@ -634,6 +748,11 @@ else
 fi
 trap 'error_exit "Nieoczekiwany błąd w skrypcie!" "trap"' ERR
 
+
+# ==========================================
+# 10. DKJSON I VENV
+# ==========================================
+
 # --- dkjson.lua: stabilny check + atomowy zapis ---
 check_internet() {
     if command -v curl &>/dev/null; then
@@ -669,7 +788,7 @@ if [ -d "$VENV_DIR" ]; then
         --ok-label="Tak, utwórz na nowo" \
         --cancel-label="Anuluj" \
         --extra-button="Nie, zostaw" \
-        --text="🖋 <b>Wykryto już środowisko Python venv:</b>\n\n<tt>$VENV_DIR</tt>\n\nCo chcesz zrobić?\n(zalecane po przeniesieniu projektu lub problemach z bibliotekami)")
+        --text="🖋 <b>Wykryto już środowisko Python venv:</b>\n\n<tt>$VENV_DIR</tt>\n\nCo chcesz zrobić?\n(Zalecane utworzenie na nowo, po przeniesieniu projektu lub problemach z bibliotekami)")
     exit_code=$?
 
     if [ "$exit_code" -eq 0 ]; then

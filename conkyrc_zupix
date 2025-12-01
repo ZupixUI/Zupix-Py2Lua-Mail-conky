@@ -83,7 +83,7 @@ conky.config = {
 
     -- LUA, WTYCZKI I FUNKCJE ZEWNĘTRZNE
     
-    lua_load = '/home/przemek_mint/Pulpit/Zupix-Py2Lua-Mail-conky-v1.0.0/lua/e-mail.lua',
+    lua_load = '/home/przemek_mint/Projekty/Zupix-Py2Lua-Mail-conky-v1.1.0_dla_Simple/lua/e-mail.lua',
     lua_draw_hook_post = 'draw_mail_indicator',
 };
 

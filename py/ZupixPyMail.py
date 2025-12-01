@@ -5,12 +5,13 @@ Copyright © 2025 Zupix, amator_80
 GPL v3+
 """
 
+from email.utils import parsedate_to_datetime
 from email.utils import parseaddr
 from email import policy
 from email.parser import BytesParser
 from email.header import decode_header
 from bs4 import BeautifulSoup
-from premailer import Premailer
+
 import email
 import quopri
 import html
@@ -134,6 +135,19 @@ UPDATE_INTERVAL = 1
 
 # ========== TUNING PARSERA ==========
 
+# Lista fraz, które oznaczają, że plain-text jest bezużyteczny i trzeba szukać HTML
+USELESS_PREVIEWS = [
+    "To jest wiadomość w formacie HTML!",
+    "to jest wiadomość w formacie HTML",
+    "to jest wiadomość w formacie html",
+    "to jest wiadomość w formacie html!",
+    "this is a multi-part message in mime format",
+    "jeśli nie widzisz tej wiadomości",
+    "if you cannot read this message",
+    "wiadomość jest w formacie html",
+    "upgrade your email client"
+]
+
 MAX_PREVIEW_LEN = 500
 RE_MULTI_SPACES = re.compile(r'\s+')
 RE_QUOTED_LINES = re.compile(r'(?m)^\s*>\s?.*$\n?')
@@ -184,16 +198,12 @@ def clean_html(text):
     if not text or not isinstance(text, str):
         return ""
 
-    try:
-        # Używamy Premailera, aby style CSS były widoczne dla BeautifulSoup
-        p = Premailer(text, remove_classes=True, keep_style_tags=False, remove_star_selectors=True, disable_validation=True)
-        html_with_styles = p.transform()
-    except Exception:
-        html_with_styles = text
+    # WERSJA LEKKA (bez Premailera)
+    # Parsujemy HTML bezpośrednio, co znacznie odciąża CPU.
+    soup = BeautifulSoup(text, "html.parser")
 
-    soup = BeautifulSoup(html_with_styles, "html.parser")
-
-    # PRECYZYJNY FILTR: Usuwamy TYLKO ukryte tagi <div> i <span>.
+    # PRECYZYJNY FILTR: Usuwamy elementy, które mają INLINE style ukrywające.
+    # Bez Premailera nie wykryjemy stylów z sekcji <style>, ale to rzadkość w mailach.
     for hidden in soup.find_all(['div', 'span'], style=re.compile(
         r'display:\s*none|visibility:\s*hidden|max-height:\s*0|font-size:\s*[0-1]px|color:\s*transparent'
     )):
@@ -280,6 +290,7 @@ def get_mail_preview(msg, line_mode, sort_preview=False):
     try:
         best_plain = None
         if msg.is_multipart():
+            # Krok 1: Szukamy text/plain, ale weryfikujemy czy to nie "zaślepka"
             for part in msg.walk():
                 ctype = part.get_content_type()
                 disp = (part.get("Content-Disposition") or "").lower()
@@ -290,10 +301,25 @@ def get_mail_preview(msg, line_mode, sort_preview=False):
                         text = payload.decode(charset, errors="replace")
                     except Exception:
                         text = payload.decode("utf-8", errors="replace")
+                    
+                    # --- POPRAWKA DLA INTERIA / WP / ZAŚLEPEK HTML ---
+                    # Sprawdzamy, czy tekst nie jest "śmieciem".
+                    # Normalizujemy tekst (małe litery, brak spacji)
+                    clean_check = text.strip().lower()
+                    # Jeśli tekst jest krótki (< 300 znaków) i zawiera frazę-zaślepkę,
+                    # to ignorujemy tę część i pozwalamy pętli szukać dalej (lub przejść do HTML).
+                    if len(clean_check) < 300 and any(m in clean_check for m in USELESS_PREVIEWS):
+                        continue 
+                    # -------------------------------------------------
+
                     if not best_plain or len(text) > len(best_plain):
                         best_plain = text
+            
+            # Jeśli znaleźliśmy "dobry" plain text, zwracamy go
             if best_plain:
                 return clean_preview(best_plain, line_mode, sort_preview)
+            
+            # Krok 2: Jeśli nie ma dobrego plain textu, szukamy HTML
             for part in msg.walk():
                 if part.get_content_type() == "text/html":
                     payload = part.get_payload(decode=True) or b""
@@ -304,13 +330,18 @@ def get_mail_preview(msg, line_mode, sort_preview=False):
                         text = payload.decode("utf-8", errors="replace")
                     return clean_preview(text, line_mode, sort_preview)
         else:
+            # Wiadomość nie jest multipart (zwykły tekst)
             payload = msg.get_payload(decode=True) or b""
             charset = msg.get_content_charset() or "utf-8"
             try:
                 text = payload.decode(charset, errors="replace")
             except Exception:
                 text = payload.decode("utf-8", errors="replace")
+            
+            # Tu też na wszelki wypadek sprawdźmy, choć w non-multipart
+            # raczej nie mamy alternatywy, więc zwracamy co jest.
             return clean_preview(text, line_mode, sort_preview)
+
     except Exception as e:
         _log_exception("get_mail_preview", e)
     return "(brak podglądu)"
@@ -457,7 +488,8 @@ def get_unread_count(imap):
     uids = data[0].split()
     return len(uids), uids
 
-def get_last_mails_for_account_polling(imap, account, n=6, show_all=False, preview_lines=3, sort_preview=False):
+def get_last_mails_for_account_polling(imap, account, n=6, show_all=False, preview_lines=3, sort_preview=False, uid_cache=None):
+    if uid_cache is None: uid_cache = {}
     mails = []
     unread_count = 0
     all_count = 0
@@ -471,31 +503,59 @@ def get_last_mails_for_account_polling(imap, account, n=6, show_all=False, previ
     # policz UNSEEN
     unread_count, unread_uids = get_unread_count(imap)
 
-    # zachowanie cache bez zmian (UNSEEN gdy show_all=False)
+    # cache selection logic
     if show_all:
         typ, data = imap.search(None, "ALL")
     else:
         typ, data = imap.search(None, "UNSEEN")
     uids = data[0].split() if data and len(data) > 0 else []
+    
     if not uids:
         return all_count, unread_count, []
 
-    uids = uids[-n:]
-    for uid in reversed(uids):
+    # UIDs to process
+    target_uids = uids[-n:]
+    
+    # Garbage Collection: Usuń z cache UID, których nie ma na bieżącej liście target_uids
+    # (Zapobiega wyciekowi pamięci przy długim działaniu)
+    cached_keys = list(uid_cache.keys())
+    # Konwersja na string/bytes może być potrzebna zależnie od liba, ale tu zakładamy zgodność typów
+    target_uids_set = set(target_uids) 
+    for k in cached_keys:
+        if k not in target_uids_set:
+            del uid_cache[k]
+
+    for uid in reversed(target_uids):
+        # 1. CACHE HIT: Jeśli mamy to już w RAM, bierzemy i nie pytamy serwera
+        if uid in uid_cache:
+            mails.append(uid_cache[uid])
+            continue
+
+        # 2. CACHE MISS: Pobieramy z serwera
         typ, msg_data = imap.fetch(uid, "(BODY.PEEK[])")
         if typ != "OK":
             continue
         raw_msg = msg_data[0][1]
         msg = BytesParser(policy=policy.default).parsebytes(raw_msg)
+        
         raw_from = msg.get("From", "")
         raw_subject = msg.get("Subject", "")
+        
+        raw_date = msg.get("Date", "")
+        mail_timestamp = 0
+        if raw_date:
+            try:
+                dt = parsedate_to_datetime(raw_date)
+                if dt:
+                    mail_timestamp = dt.timestamp()
+            except Exception:
+                pass
+
         subject = decode_mime_header(raw_subject)
         from_addr = decode_mime_header(raw_from)
         from_name = extract_sender_name(from_addr)
         preview = get_mail_preview(msg, preview_lines, sort_preview)
-        # KROK 1: Usuń niewidzialne znaki (co może stworzyć puste miejsca)
         preview = remove_invisible_unicode(preview)
-        # KROK 2: Zgnieć wszystkie pozostałe białe znaki do jednej spacji
         preview = RE_MULTI_SPACES.sub(' ', preview).strip()
         has_attachment = False
         if msg.is_multipart():
@@ -504,15 +564,22 @@ def get_last_mails_for_account_polling(imap, account, n=6, show_all=False, previ
                 if content_disposition and "attachment" in content_disposition.lower():
                     has_attachment = True
                     break
+        
         mail_dict = {
             "from": from_addr,
             "from_name": from_name,
             "subject": subject,
             "preview": preview,
             "account": account["name"],
-            "has_attachment": has_attachment
+            "has_attachment": has_attachment,
+            "date": mail_timestamp,
+            "date_iso": raw_date
         }
+        
+        # Zapisz do cache na przyszłość
+        uid_cache[uid] = mail_dict
         mails.append(mail_dict)
+
     return all_count, unread_count, mails
 
 class AccountWorkerPolling(threading.Thread):
@@ -528,6 +595,7 @@ class AccountWorkerPolling(threading.Thread):
         self.unread = 0
         self.all_count = 0
         self.mails = []
+        self.uid_cache = {}
         self.daemon = True
         self._lock = threading.Lock()
         self._stop_ev = threading.Event()
@@ -651,7 +719,8 @@ class AccountWorkerPolling(threading.Thread):
                     n=self.config["max_mails"],
                     show_all=self.config["show_all"],
                     preview_lines=self.config["preview_lines"],
-                    sort_preview=self.config["sort_preview"]
+                    sort_preview=self.config["sort_preview"],
+                    uid_cache=self.uid_cache
                 )
                 for mail in mails:
                     mail["account_idx"] = self.acc_idx
@@ -683,84 +752,110 @@ class AccountWorkerPolling(threading.Thread):
 
 # ========== IDLE ==========
 
-def get_last_mails_for_account_idle(imap, account, n=6, show_all=False, preview_lines=3, sort_preview=False):
+def get_last_mails_for_account_idle(imap, account, n=6, show_all=False, preview_lines=3, sort_preview=False, uid_cache=None):
+    if uid_cache is None: uid_cache = {}
     mails = []
     debug_print(f"[IDLE] - [{account['name']}] get_last_mails_for_account: select_folder INBOX", level="CYAN")
     imap.select_folder("INBOX")
-    # policz ALL i UNSEEN (liczniki)
+    
     all_uids = imap.search(['ALL'])
     all_count = len(all_uids)
     unread_uids = imap.search(['UNSEEN'])
     unread_count = len(unread_uids)
-    # wybór listy UIDs do cache – bez zmiany zachowania
+    
     if show_all:
         debug_print(f"[IDLE] - [{account['name']}] Searching ALL (dla cache)", level="CYAN")
         uids = all_uids
     else:
         debug_print(f"[IDLE] - [{account['name']}] Searching UNSEEN (dla cache)", level="CYAN")
         uids = unread_uids
+    
     debug_print(f"[IDLE] - [{account['name']}] UID list: {uids}", level="CYAN")
     if not uids:
         return all_count, unread_count, []
-    uids = uids[-n:]
-    mmessages = imap.fetch(uids, [b'BODY.PEEK[]'])
-    debug_print(f"[IDLE] - [{account['name']}] Fetched messages for UIDs: {uids}", level="CYAN")
-    for uid in reversed(uids):
-        try:
-            blob = mmessages.get(uid)
-            if not blob:
-                debug_print(f"[IDLE] - [{account['name']}] Brak fetch dla UID={uid}", level="YELLOW")
+    
+    target_uids = uids[-n:]
+
+    # 1. Garbage Collection
+    cached_keys = list(uid_cache.keys())
+    target_uids_set = set(target_uids)
+    for k in cached_keys:
+        if k not in target_uids_set:
+            del uid_cache[k]
+
+    # 2. Identify missing UIDs
+    missing_uids = [u for u in target_uids if u not in uid_cache]
+
+    # 3. Fetch ONLY missing
+    if missing_uids:
+        debug_print(f"[IDLE] - [{account['name']}] Fetching MISSING only: {missing_uids}", level="CYAN")
+        mmessages = imap.fetch(missing_uids, [b'BODY.PEEK[]'])
+        
+        for uid in missing_uids:
+            try:
+                blob = mmessages.get(uid)
+                if not blob:
+                    continue
+                msg_bytes = (blob.get(b'BODY[]') or blob.get('BODY[]') or blob.get(b'RFC822') or blob.get('RFC822'))
+                if not msg_bytes:
+                    continue
+                if isinstance(msg_bytes, str):
+                    msg_bytes = msg_bytes.encode('utf-8', errors='replace')
+
+                msg = BytesParser(policy=policy.default).parsebytes(msg_bytes)
+                
+                raw_from = msg.get("From", "")
+                raw_subject = msg.get("Subject", "")
+                
+                raw_date = msg.get("Date", "")
+                mail_timestamp = 0
+                if raw_date:
+                    try:
+                        dt = parsedate_to_datetime(raw_date)
+                        if dt:
+                            mail_timestamp = dt.timestamp()
+                    except Exception:
+                        pass
+
+                subject = decode_mime_header(raw_subject)
+                from_addr = decode_mime_header(raw_from)
+                from_name = extract_sender_name(from_addr)
+                preview = get_mail_preview(msg, preview_lines, sort_preview)
+                preview = remove_invisible_unicode(preview)
+                preview = RE_MULTI_SPACES.sub(' ', preview).strip()
+                has_attachment = False
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        content_disposition = part.get("Content-Disposition", "")
+                        if content_disposition and "attachment" in content_disposition.lower():
+                            has_attachment = True
+                            break
+                
+                mail_dict = {
+                    "from": from_addr,
+                    "from_name": from_name,
+                    "subject": subject,
+                    "preview": preview,
+                    "account": account["name"],
+                    "has_attachment": has_attachment,
+                    "date": mail_timestamp,
+                    "date_iso": raw_date
+                }
+                # Add to cache
+                uid_cache[uid] = mail_dict
+            except Exception as e:
+                if not RUNNING_EV.is_set(): break
+                _log_exception(f"[IDLE] - [{account['name']}] Parse fetch UID={uid}", e)
                 continue
+    else:
+        debug_print(f"[IDLE] - [{account['name']}] Wszystkie maile w cache (0 pobierania).", level="GREEN")
 
-            msg_bytes = (
-                blob.get(b'BODY[]') or
-                blob.get('BODY[]') or
-                blob.get(b'RFC822') or
-                blob.get('RFC822')
-            )
-            if not msg_bytes:
-                debug_print(f"[IDLE] - [{account['name']}] Brak BODY[]/RFC822 dla UID={uid}", level="YELLOW")
-                continue
+    # 4. Assemble result from cache (in correct order)
+    for uid in reversed(target_uids):
+        if uid in uid_cache:
+            mails.append(uid_cache[uid])
 
-            if isinstance(msg_bytes, str):
-                msg_bytes = msg_bytes.encode('utf-8', errors='replace')
-
-            msg = BytesParser(policy=policy.default).parsebytes(msg_bytes)
-        except Exception as e:
-            if not RUNNING_EV.is_set():
-                # zamykanie – traktuj łagodnie
-                debug_print(f"[IDLE] - [{account['name']}] Fetch przerwany podczas zamykania: {e}", level="YELLOW")
-                break
-            _log_exception(f"[IDLE] - [{account['name']}] Parse fetch UID={uid}", e)
-            continue
-
-        raw_from = msg.get("From", "")
-        raw_subject = msg.get("Subject", "")
-        subject = decode_mime_header(raw_subject)
-        from_addr = decode_mime_header(raw_from)
-        from_name = extract_sender_name(from_addr)
-        preview = get_mail_preview(msg, preview_lines, sort_preview)
-        # KROK 1: Usuń niewidzialne znaki (co może stworzyć puste miejsca)
-        preview = remove_invisible_unicode(preview)
-        # KROK 2: Zgnieć wszystkie pozostałe białe znaki do jednej spacji
-        preview = RE_MULTI_SPACES.sub(' ', preview).strip()
-        has_attachment = False
-        if msg.is_multipart():
-            for part in msg.walk():
-                content_disposition = part.get("Content-Disposition", "")
-                if content_disposition and "attachment" in content_disposition.lower():
-                    has_attachment = True
-                    break
-        mail_dict = {
-            "from": from_addr,
-            "from_name": from_name,
-            "subject": subject,
-            "preview": preview,
-            "account": account["name"],
-            "has_attachment": has_attachment
-        }
-        mails.append(mail_dict)
-    debug_print(f"[IDLE] - [{account['name']}] Parsed {len(mails)} mails", level="CYAN")
+    debug_print(f"[IDLE] - [{account['name']}] Result count: {len(mails)}", level="CYAN")
     return all_count, unread_count, mails
 
 EXCEPT_RETRY_DELAY = 8
@@ -799,6 +894,7 @@ class AccountWorkerIdle(threading.Thread):
         self.unread = 0
         self.all_count = 0
         self.mails = []
+        self.uid_cache = {}
         self.daemon = True
         self._lock = threading.Lock()
         self._stop_ev = threading.Event()
@@ -975,7 +1071,8 @@ class AccountWorkerIdle(threading.Thread):
                     n=self.config["max_mails"],
                     show_all=self.config["show_all"],
                     preview_lines=self.config["preview_lines"],
-                    sort_preview=self.config["sort_preview"]
+                    sort_preview=self.config["sort_preview"],
+                    uid_cache=self.uid_cache
                 )
                 for mail in mails:
                     mail["account_idx"] = self.acc_idx
@@ -1076,7 +1173,8 @@ class AccountWorkerIdle(threading.Thread):
                     n=self.config["max_mails"],
                     show_all=self.config["show_all"],
                     preview_lines=self.config["preview_lines"],
-                    sort_preview=self.config["sort_preview"]
+                    sort_preview=self.config["sort_preview"],
+                    uid_cache=self.uid_cache
                 )
                 for mail in mails:
                     mail["account_idx"] = self.acc_idx
@@ -1156,7 +1254,8 @@ class AccountWorkerIdle(threading.Thread):
                             n=self.config["max_mails"],
                             show_all=self.config["show_all"],
                             preview_lines=self.config["preview_lines"],
-                            sort_preview=self.config["sort_preview"]
+                            sort_preview=self.config["sort_preview"],
+                            uid_cache=self.uid_cache
                         )
                         for mail in mails:
                             mail["account_idx"] = self.acc_idx

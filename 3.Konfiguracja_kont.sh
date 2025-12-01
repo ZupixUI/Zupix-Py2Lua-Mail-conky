@@ -288,9 +288,14 @@ move_line_in_block_perl() {
 }
 
 save_accounts_array() {
-    local new_json
-    new_json=$(printf ",%s" "${accounts_array[@]}")
-    echo "[${new_json:1}]" | jq '.' > "$ACCOUNTS_JSON"
+    # Bezpieczniejszy zapis:
+    # 1. Wypisuje elementy tablicy (które są już poprawnymi obiektami JSON w jednej linii).
+    # 2. Przekazuje je do 'jq -s' (slurp), który automatycznie i bezpiecznie tworzy z nich poprawną tablicę JSON [ ... ].
+    if [ ${#accounts_array[@]} -eq 0 ]; then
+        echo "[]" > "$ACCOUNTS_JSON"
+    else
+        printf '%s\n' "${accounts_array[@]}" | jq -s '.' > "$ACCOUNTS_JSON"
+    fi
 }
 
 # ==========================================================

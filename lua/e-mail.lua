@@ -24,6 +24,11 @@ package.path = package.path .. ";" .. script_path .. "?.lua"
 -- 0.75 = 75% 
 -- i tak dalej...
 local SCALE = 1.00
+    
+-- ————————————————————————— NOWA FUNKCJA: TRYB SORTOWANIA ———————————————————————————————
+-- true  = Wszystkie maile są wymieszane razem i ułożone chronologicznie (ignoruje podział na konta)
+-- false = Maile są pogrupowane kontami (najpierw konto A, potem konto B...), a wewnątrz konta wg daty
+local SORT_BY_DATE_GLOBALLY = true
 
 -- ————————————————————————— NOWA FUNKCJA: AUTOMATYCZNE PRZEWIJANIE DO NOWEGO MAILA ———————————————————————————————
 -- Włącz (true) lub wyłącz (false) automatyczne przewijanie do nowego maila, jeśli jest poza widokiem
@@ -39,7 +44,7 @@ local PULSE_COLOR = {1, 0, 0} -- Czerwony
 -- Czas trwania animacji pulsowania w sekundach
 local PULSE_DURATION = 6.0
 -- Szybkość pulsowania (ile razy mignie w czasie trwania). Wyższa wartość = szybsze miganie.
-local PULSE_SPEED = 50.0
+local PULSE_SPEED = 3.0
 
 
 --———————————————————————————————— KONFIGURACJA TŁA GŁÓWNEGO ————————————————————————————————
@@ -85,7 +90,7 @@ local ENABLE_BADGE = true
 
 --————————————Ustawioenia animacji shake——————————————
 local shake_anim_time = 0
-local SHAKE_DURATION = 0.015
+local SHAKE_DURATION = 0.35
 local prev_mail_scroll_offset = 0
 local shake_sound_played = false
 local EARLY_START_SOUND = true
@@ -99,7 +104,7 @@ local MAIL_SCROLL_FILE = "/dev/shm/Zupix-Py2Lua-Mail-conky/conky_mail_scroll_off
 local SCROLL_TIMEOUT = 4.0 -- Czas po którym lista wróci do pozycji bazowej.
 
 --———————————— Przewijanie treści maila————————————
-local PREVIEW_SCROLL_SPEED_MULTIPLIER = 120 -- Mnożnik prędkości przewijania
+local PREVIEW_SCROLL_SPEED_MULTIPLIER = 10 -- Mnożnik prędkości przewijania
 
 --———————————— Kontrola wyświetlania ————————————
 local SHOW_SENDER_EMAIL = false -- Wyświetlanie adresu e-mail nadawcy zamiast jego nazwy.
@@ -108,11 +113,11 @@ local ATTACHMENT_ICON_ENABLE = true -- Wyświetlanie ikony załącznika (spinacz
 local ENABLE_PREVIEW_SCROLL = true -- Włączenie animacji przewijania dla podglądu treści maila, jeśli tekst jest zbyt długi.
 
 --———————————— Ścieżki do plików ————————————
-local ATTACHMENT_ICON_IMAGE = "/home/przemek_mint/Pulpit/Zupix-Py2Lua-Mail-conky-v1.0.0/icons/spinacz1.png"
-local MAX_MAILS_FILE = "/home/przemek_mint/Pulpit/Zupix-Py2Lua-Mail-conky-v1.0.0/config/mail_conky_max"
-local NEW_MAIL_SOUND = "/home/przemek_mint/Pulpit/Zupix-Py2Lua-Mail-conky-v1.0.0/sound/nowy_mail.wav"
-local SHAKE_SOUND = "/home/przemek_mint/Pulpit/Zupix-Py2Lua-Mail-conky-v1.0.0/sound/shake_2.wav"
-local ENVELOPE_IMAGE = "/home/przemek_mint/Pulpit/Zupix-Py2Lua-Mail-conky-v1.0.0/icons/mail.png"
+local ATTACHMENT_ICON_IMAGE = ""
+local MAX_MAILS_FILE = ""
+local NEW_MAIL_SOUND = ""
+local SHAKE_SOUND = ""
+local ENVELOPE_IMAGE = ""
 local MAIL_SOUND_PLAYED_FILE = "/dev/shm/Zupix-Py2Lua-Mail-conky/mail_sound_played"
 local MAIL_ACCOUNT_FILE = "/dev/shm/Zupix-Py2Lua-Mail-conky/conky_mail_account"
 local MAIL_IDS_FILE = "/dev/shm/Zupix-Py2Lua-Mail-conky/mail_ids_seen.json"
@@ -140,6 +145,11 @@ local wav_file_exists = nil
 local auto_scroll_active = false
 local auto_scroll_start_time = 0
 local previous_manual_scroll_offset = 0
+
+-- Cache dla przyciętych tekstów (żeby nie liczyć szerokości w każdej klatce)
+local TRIM_CACHE = {}
+-- Cache dla szerokości tekstów (żeby nie mierzyć ich w każdej klatce)
+local WIDTH_CACHE = {}
 
 --———————————— Funkcja pomocnicza do skalowania widgetu ————————————
 local function s(value)
@@ -415,16 +425,23 @@ local function play_sound(path)
     return true
 end
 
--- ———————— Precyzyjna funkcja czasu (rozwiązanie problemu z os.time()) ————————
+    
+-- ———————— Precyzyjna funkcja czasu (WERSJA NAPRAWIONA - SZYBKA I RZECZYWISTA) ————————
 local function get_precise_time()
-    local f = io.popen("date +%s.%N")
+    -- Próbujemy odczytać czas z /proc/uptime.
+    -- Jest to operacja na pamięci RAM (bardzo szybka) i zwraca czas rzeczywisty.
+    local f = io.open("/proc/uptime", "r")
     if f then
-        local time_str = f:read("*a")
+        local content = f:read("*a")
         f:close()
-        -- Zwraca czas jako liczbę zmiennoprzecinkową, np. 1678886400.123456789
-        -- W razie błędu, wraca do standardowego os.time()
-        return tonumber(time_str) or os.time()
+        -- Wyciągamy pierwszą liczbę (sekundy.setne) z pliku
+        local uptime = content:match("^(%d+[%.]?%d*)")
+        if uptime then
+            return tonumber(uptime)
+        end
     end
+    
+    -- Jeśli system nie ma /proc/uptime (mało prawdopodobne), wracamy do zwykłego czasu
     return os.time()
 end
 
@@ -470,7 +487,6 @@ local function lerp_color(color1, color2, t)
 end
 
 -- ———————— Funkcja: rysuje czerwoną ramkę debug wokół okna conky ————————
-
 local function draw_debug_border(cr, color, thickness)
     if not conky_window then return end
     local w = conky_window.width
@@ -825,46 +841,166 @@ local function utf8_len(s)
     return count
 end
 
--- ———————— Funkcja inteligentnego skracania tekstu i dodawanie na jego końcu wielokropka (...) ————————
+-- ———————— Funkcja inteligentnego skracania tekstu (Z CACHE + BINARY SEARCH) ————————
 local function trim_line_to_width(cr, text, max_width)
+    local cache_key = text .. "|" .. max_width
+    if TRIM_CACHE[cache_key] then return TRIM_CACHE[cache_key] end
+
+    cairo_text_extents(cr, text, GLOBAL_TEXT_EXTENTS)
+    if GLOBAL_TEXT_EXTENTS.width <= max_width then
+        TRIM_CACHE[cache_key] = text
+        return text
+    end
+
     local ellipsis = "..."
-    local trimmed = text
-    while true do
-        cairo_text_extents(cr, trimmed, GLOBAL_TEXT_EXTENTS)
-        if GLOBAL_TEXT_EXTENTS.width <= max_width or utf8_len(trimmed) <= #ellipsis then
-            break
+    cairo_text_extents(cr, ellipsis, GLOBAL_TEXT_EXTENTS)
+    local target_w = max_width - GLOBAL_TEXT_EXTENTS.width
+    
+    if target_w <= 0 then 
+        TRIM_CACHE[cache_key] = ellipsis
+        return ellipsis 
+    end
+
+    local text_len = utf8_len(text)
+    local min, max, best_mid = 0, text_len, 0
+
+    while min <= max do
+        local mid = math.floor((min + max) / 2)
+        local sub = utf8_sub(text, 1, mid)
+        cairo_text_extents(cr, sub, GLOBAL_TEXT_EXTENTS)
+        
+        if GLOBAL_TEXT_EXTENTS.width <= target_w then
+            best_mid = mid
+            min = mid + 1
+        else
+            max = mid - 1
         end
-        trimmed = utf8_sub(trimmed, 1, utf8_len(trimmed) - 1)
     end
-    if trimmed ~= text then
-        trimmed = utf8_sub(trimmed, 1, utf8_len(trimmed) - #ellipsis - 1) .. ellipsis
-    end
-    return trimmed
+
+    local result = utf8_sub(text, 1, best_mid) .. ellipsis
+    TRIM_CACHE[cache_key] = result
+    return result
 end
 
+-- ———————— Funkcja pomocnicza: Pobiera szerokość tekstu z CACHE (0% CPU) ————————
+local function get_cached_width(cr, text, font_name, font_size, font_bold)
+    local key = text .. "|" .. font_name .. "|" .. font_size .. "|" .. tostring(font_bold)
+    
+    if WIDTH_CACHE[key] then
+        return WIDTH_CACHE[key]
+    end
+    
+    set_font(cr, font_name, font_size, font_bold)
+    cairo_text_extents(cr, text, GLOBAL_TEXT_EXTENTS)
+    local w = GLOBAL_TEXT_EXTENTS.x_advance
+    
+    WIDTH_CACHE[key] = w
+    return w
+end
 
--- ———————— Funkcja-parser, która analizuje surową, bajtową reprezentację tekstu, aby odróżnić zwykłe znaki od wielobajtowych sekwencji emoji. ————————
+-- ———————— Funkcja-parser: Obsługa Emoji (Z filtrowaniem nieobsługiwanych kolorów) ————————
 local function split_emoji(text)
+    -- FIX DLA CAIRO: Usuwamy modyfikatory koloru skóry (Fitzpatrick type 1-6).
+    -- Kody: F0 9F 8F [BB-BF]. W Lua (decimal): \240\159\143[\187-\191].
+    -- Dzięki temu zamiast "Ręka + Kwadrat" zobaczymy czystą "Żółtą Rękę".
+    local clean_text = text:gsub("\240\159\143[\187-\191]", "")
+
     local res = {}
     local i = 1
-    local len = #text
+    local len = #clean_text
+    
     while i <= len do
-        local c = text:byte(i)
-        if c and c >= 0xF0 then
-            local emoji = text:sub(i, i+3)
-            table.insert(res, {emoji=true, txt=emoji})
-            i = i + 4
+        local b1 = clean_text:byte(i)
+        local char_len = 1
+
+        -- 1. Ustalanie długości bieżącego znaku
+        if b1 < 0x80 then char_len = 1
+        elseif b1 < 0xE0 then char_len = 2
+        elseif b1 < 0xF0 then char_len = 3
+        else char_len = 4 end
+
+        -- 2. Czy to początek potencjalnej emotki?
+        local is_emoji_start = (b1 >= 0xF0) or (b1 == 0xE2 and clean_text:byte(i+1) >= 0x90)
+
+        if is_emoji_start then
+            local current_chunk_len = char_len
+            
+            -- Pętla Zjadacza (uproszczona, bo kolory już wycięliśmy, ale zostawiamy dla ZWJ i VS16)
+            while (i + current_chunk_len) <= len do
+                local next_pos = i + current_chunk_len
+                local n1 = clean_text:byte(next_pos)
+                
+                local next_char_len = 1
+                if n1 < 0x80 then next_char_len = 1
+                elseif n1 < 0xE0 then next_char_len = 2
+                elseif n1 < 0xF0 then next_char_len = 3
+                else next_char_len = 4 end
+
+                local matched = false
+
+                -- A. Znak Wariacji VS16 (Styl graficzny: EF B8 8F)
+                if n1 == 0xEF and next_char_len == 3 then
+                    if next_pos + 2 <= len then
+                        local n2, n3 = clean_text:byte(next_pos+1), clean_text:byte(next_pos+2)
+                        if n2 == 0xB8 and n3 == 0x8F then
+                            matched = true
+                            current_chunk_len = current_chunk_len + 3
+                        end
+                    end
+                end
+
+                -- B. Łącznik ZWJ (Zero Width Joiner: E2 80 8D)
+                if not matched and n1 == 0xE2 and next_char_len == 3 then
+                    if next_pos + 2 <= len then
+                        local n2, n3 = clean_text:byte(next_pos+1), clean_text:byte(next_pos+2)
+                        if n2 == 0x80 and n3 == 0x8D then
+                            local zwj_len = 3
+                            local target_pos = next_pos + zwj_len
+                            
+                            if target_pos <= len then
+                                local t1 = clean_text:byte(target_pos)
+                                local target_len = 1
+                                if t1 < 0x80 then target_len = 1
+                                elseif t1 < 0xE0 then target_len = 2
+                                elseif t1 < 0xF0 then target_len = 3
+                                else target_len = 4 end
+                                
+                                current_chunk_len = current_chunk_len + zwj_len + target_len
+                                matched = true
+                            end
+                        end
+                    end
+                end
+
+                if not matched then break end
+            end
+
+            table.insert(res, {emoji=true, txt=clean_text:sub(i, i + current_chunk_len - 1)})
+            i = i + current_chunk_len
         else
+            -- Zwykły tekst
             local j = i
             while j <= len do
-                local cj = text:byte(j)
-                if cj and cj >= 0xF0 then break end
-                j = j + 1
+                local next_b1 = clean_text:byte(j)
+                local is_next_emoji = (next_b1 >= 0xF0) or (next_b1 == 0xE2 and clean_text:byte(j+1) >= 0x90)
+                
+                if is_next_emoji then break end
+                
+                local next_len = 1
+                if next_b1 < 0x80 then next_len = 1
+                elseif next_b1 < 0xE0 then next_len = 2
+                elseif next_b1 < 0xF0 then next_len = 3
+                else next_len = 4 end
+                
+                j = j + next_len
             end
+            
             if j > i then
-                table.insert(res, {emoji=false, txt=text:sub(i, j-1)})
+                table.insert(res, {emoji=false, txt=clean_text:sub(i, j-1)})
+                i = j
+            else
+                i = i + 1
             end
-            i = j
         end
     end
     return res
@@ -887,48 +1023,23 @@ local function get_chunks_width(cr, chunks, font_name, font_size, font_bold)
 end
 
 
--- ———————— Funkcja skracania tekstu tak, aby zmieścił się w określonej szerokości (max_width), i dodanie na końcu wielokropka z obsługą emoji. ————————
+-- ———————— Funkcja skracania tekstu z obsługą Emoji (Z CACHE - ZERO CPU) ————————
 local function trim_line_to_width_emoji(cr, text, max_width, font_name, font_size, font_bold)
-    local ellipsis = "..."
-    local trimmed_text = text
+    local cache_key = "EMOJI_" .. text .. "|" .. max_width .. "|" .. tostring(font_bold) .. "|" .. font_size
+    if TRIM_CACHE[cache_key] then return TRIM_CACHE[cache_key] end
 
-    while true do
-        local chunks_for_measurement = split_emoji(trimmed_text)
-        local current_width = get_chunks_width(cr, chunks_for_measurement, font_name, font_size, font_bold)
-
-        if current_width <= max_width then
-            break
-        end
-        
-        if utf8_len(trimmed_text) <= 1 then
-            trimmed_text = ""
-            break
-        end
-
-        trimmed_text = utf8_sub(trimmed_text, 1, utf8_len(trimmed_text) - 1)
+    if font_bold then
+        cairo_select_font_face(cr, font_name, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD)
+    else
+        cairo_select_font_face(cr, font_name, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL)
     end
+    cairo_set_font_size(cr, font_size)
 
-    if trimmed_text ~= text then
-        cairo_select_font_face(cr, font_name, CAIRO_FONT_SLANT_NORMAL, font_bold and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
-        cairo_set_font_size(cr, font_size)
-        cairo_text_extents(cr, ellipsis, GLOBAL_TEXT_EXTENTS)
-        
-        while true do
-            local chunks_for_measurement = split_emoji(trimmed_text)
-            local current_width = get_chunks_width(cr, chunks_for_measurement, font_name, font_size, font_bold)
-            if current_width <= max_width - GLOBAL_TEXT_EXTENTS.x_advance then
-                break
-            end
-            if utf8_len(trimmed_text) <= 1 then
-                trimmed_text = ""
-                break
-            end
-            trimmed_text = utf8_sub(trimmed_text, 1, utf8_len(trimmed_text) - 1)
-        end
-        trimmed_text = trimmed_text .. ellipsis
-    end
+    local trimmed_string = trim_line_to_width(cr, text, max_width)
+    local result = split_emoji(trimmed_string)
     
-    return split_emoji(trimmed_text)
+    TRIM_CACHE[cache_key] = result
+    return result
 end
 
 -- ———————— Funkcja: Wczytuje ID maili z pliku stanu ————————
@@ -986,6 +1097,48 @@ function conky_draw_mail_indicator()
     local MAX_MAILS = get_max_mails_from_file()
     local error_msgs = read_error_messages()
     local unread, mails, all_total, unread_cache_total = fetch_mails_from_python()
+
+-- =================== POCZĄTEK KODU "PANCERNEGO" (FIX OSTATECZNY) ===================
+    if SORT_BY_DATE_GLOBALLY and selected_account_idx == 0 then
+        
+        -- KROK 1: Nadajemy każdemu mailowi unikalny numer porządkowy (taki, jaki miał w pliku)
+        -- To gwarantuje, że mamy się do czego odwołać w razie totalnego remisu.
+        for i, m in ipairs(mails) do
+            m._sort_id = i
+        end
+
+        -- KROK 2: Sortujemy z pełną kaskadą sprawdzania
+        table.sort(mails, function(a, b)
+            -- A. Data
+            local date_a = tonumber(a.date) or tonumber(a.timestamp) or 0
+            local date_b = tonumber(b.date) or tonumber(b.timestamp) or 0
+            if date_a ~= date_b then return date_a > date_b end
+
+            -- B. Temat
+            if (a.subject or "") ~= (b.subject or "") then
+                return (a.subject or "") < (b.subject or "")
+            end
+
+            -- C. Nadawca
+            if (a.from or "") ~= (b.from or "") then
+                return (a.from or "") < (b.from or "")
+            end
+
+            -- D. Podgląd treści
+            if (a.preview or "") ~= (b.preview or "") then
+                return (a.preview or "") < (b.preview or "")
+            end
+
+            -- E. Konto (np. ten sam spam na dwa różne konta)
+            if (a.account_idx or 0) ~= (b.account_idx or 0) then
+                return (a.account_idx or 0) < (b.account_idx or 0)
+            end
+
+            -- F. OSTATECZNY REMIS: Użyj oryginalnej kolejności z pliku
+            return a._sort_id < b._sort_id
+        end)
+    end
+    -- =================== KONIEC KODU "PANCERNEGO" ===================
 
     if EARLY_START_SOUND then
         if not has_played_start_sound() and unread > 0 then
@@ -1365,9 +1518,9 @@ if MAILS_DIRECTION == "up_4k" then
     local shake_offset = 0
     local shake_color_mix = 0
     if shake_anim_time > 0 then
-        local elapsed = os.clock() - shake_anim_time
+	local elapsed = get_precise_time() - shake_anim_time
         if elapsed < SHAKE_DURATION then
-            shake_offset = math.sin(elapsed * 800) * s(3)
+		shake_offset = math.sin(elapsed * 800) * s(3)
             shake_color_mix = math.abs(math.sin(elapsed * math.pi / SHAKE_DURATION))
             if not shake_sound_played then
                 play_sound(SHAKE_SOUND)
@@ -1599,11 +1752,11 @@ end
     local N = #filtered_mails
     local max_offset = math.max(N - MAX_MAILS, 0)
     if mail_scroll_offset > max_offset then
-        if prev_mail_scroll_offset <= max_offset then shake_anim_time = os.clock() end
+if prev_mail_scroll_offset <= max_offset then shake_anim_time = get_precise_time() end
         mail_scroll_offset = max_offset
 		write_mail_scroll_offset(mail_scroll_offset)
     elseif mail_scroll_offset < 0 then
-        if prev_mail_scroll_offset >= 0 then shake_anim_time = os.clock() end
+if prev_mail_scroll_offset >= 0 then shake_anim_time = get_precise_time() end
         mail_scroll_offset = 0
 		write_mail_scroll_offset(0)
     end
@@ -1644,7 +1797,7 @@ if ENABLE_NEW_MAIL_PULSE then
                 local elapsed_real_time = get_precise_time() - start_time -- Mierz RZECZYWISTY czas
                 if elapsed_real_time < PULSE_DURATION then
                     -- Do stworzenia płynnej fali użyj os.clock(), który rośnie płynnie
-                    local pulse_mix = math.abs(math.sin(os.clock() * PULSE_SPEED))
+				local pulse_mix = math.abs(math.sin(get_precise_time() * PULSE_SPEED))
                     final_bg_color = lerp_color(MAIL_BG_COLOR, PULSE_COLOR, pulse_mix)
                 else
                     -- Jeśli czas minął, usuń jego stoper z tabeli
@@ -1669,10 +1822,16 @@ if ENABLE_NEW_MAIL_PULSE then
 
 			-- ———————— BLOK A: Rysowanie dla układu ODWRÓCONEGO (od prawej do lewej) ————————
             local account_label = mail.account and ("[" .. mail.account .. "] ") or ""
-            set_font(cr, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
-            cairo_text_extents(cr, account_label, GLOBAL_TEXT_EXTENTS)
+            
+            -- OPTYMALIZACJA: Pobieramy szerokość z cache
+            local acc_width = get_cached_width(cr, account_label, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
+            
             local base_right_x = mails_x + MAILS_WIDTH
-            local x_cursor = base_right_x - GLOBAL_TEXT_EXTENTS.x_advance
+            -- Używamy cached width do obliczenia pozycji startowej
+            local x_cursor = base_right_x - acc_width
+            
+            set_font(cr, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
+            
             if #account_label > 0 and ACCOUNT_COLORS[mail.account] then
                 set_color(cr, "custom", ACCOUNT_COLORS[mail.account])
             else
@@ -1680,21 +1839,28 @@ if ENABLE_NEW_MAIL_PULSE then
             end
             cairo_move_to(cr, x_cursor, mail_y)
             cairo_show_text(cr, account_label)
-            local konta_end_x = x_cursor + GLOBAL_TEXT_EXTENTS.x_advance
+            local konta_end_x = x_cursor + acc_width
 
             set_color(cr, FROM_COLOR_TYPE, FROM_COLOR_CUSTOM)
             set_font(cr, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
             local from_txt = ":" .. mail.from:gsub(":*$", "")
-            local max_from_width = s(225) - (GLOBAL_TEXT_EXTENTS.x_advance or 0)
+            -- Tu też używamy cache width (choć tu jest to estymacja przed przycięciem, ale acc_width jest już szybkie)
+            local max_from_width = s(225) - acc_width
+            
             local from_txt_trimmed = trim_line_to_width(cr, from_txt, max_from_width)
-            cairo_text_extents(cr, from_txt_trimmed, GLOBAL_TEXT_EXTENTS)
-            x_cursor = x_cursor - GLOBAL_TEXT_EXTENTS.x_advance - s(8)
+            
+            -- OPTYMALIZACJA: Pobieramy szerokość przyciętego nadawcy z cache
+            local from_width = get_cached_width(cr, from_txt_trimmed, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
+            
+            x_cursor = x_cursor - from_width - s(8)
             cairo_move_to(cr, x_cursor, mail_y)
             cairo_show_text(cr, from_txt_trimmed)
 
             set_color(cr, SUBJECT_COLOR_TYPE, SUBJECT_COLOR_CUSTOM)
             set_font(cr, SUBJECT_FONT_NAME, SUBJECT_FONT_SIZE, SUBJECT_FONT_BOLD)
             local max_subject_width = x_cursor - mails_x - s(12)
+            
+            -- Tu już mamy optymalizację (trim_line_to_width_emoji korzysta z cache TRIM_CACHE)
             local subject_chunks = trim_line_to_width_emoji(cr, mail.subject, max_subject_width, SUBJECT_FONT_NAME, SUBJECT_FONT_SIZE, SUBJECT_FONT_BOLD)
             local subject_width = get_chunks_width(cr, subject_chunks, SUBJECT_FONT_NAME, SUBJECT_FONT_SIZE, SUBJECT_FONT_BOLD)
             local SUBJECT_FROM_MARGIN = s(5)
@@ -1714,6 +1880,7 @@ if ENABLE_NEW_MAIL_PULSE then
             end
 
 			-- ———————— Rysowanie podglądu (Preview) dla układu odwróconego ————————
+            -- (Tutaj kod preview zostaje bez zmian, bo korzysta z już zoptymalizowanych funkcji trim/get_chunks)
             if SHOW_MAIL_PREVIEW and mail.preview then
                 local preview_y = mail_y + FROM_FONT_SIZE + s(PREVIEW_VERTICAL_SPACING_BASE)
                 set_color(cr, PREVIEW_COLOR_TYPE, PREVIEW_COLOR_CUSTOM)
@@ -1729,7 +1896,7 @@ if ENABLE_NEW_MAIL_PULSE then
                 if ENABLE_PREVIEW_SCROLL and preview_chunks_width > scroll_area_stat then
                     cairo_rectangle(cr, preview_start_x - emoji_clip_pad, preview_y - PREVIEW_FONT_SIZE, scroll_area_stat + emoji_clip_pad * 2, PREVIEW_FONT_SIZE + s(8))
                     cairo_clip(cr)
-                    local t = os.clock()
+					local t = get_precise_time()
                     local gap = s(48)
                     local scrollable = preview_chunks_width + gap
                     local scroll_offset = (t * preview_scroll_speed) % scrollable
@@ -1767,23 +1934,26 @@ if ENABLE_NEW_MAIL_PULSE then
             end
         else
 			-- ———————— BLOK B: Rysowanie dla układu STANDARDOWEGO (od lewej do prawej) ————————
-            local account_label = mail.account and ("[" .. mail.account .. "] ") or ""
+			local account_label = mail.account and ("[" .. mail.account .. "] ") or ""
+            
+            -- OPTYMALIZACJA: Pobierz szerokość z cache
+            local acc_width = get_cached_width(cr, account_label, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
+
             if #account_label > 0 and ACCOUNT_COLORS[mail.account] then set_color(cr, "custom", ACCOUNT_COLORS[mail.account]) else set_color(cr, "custom", ACCOUNT_DEFAULT_COLOR) end
             set_font(cr, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
             cairo_move_to(cr, mail_x, mail_y)
 			cairo_show_text(cr, account_label)
-            cairo_text_extents(cr, account_label, GLOBAL_TEXT_EXTENTS)
-            local acc_width = GLOBAL_TEXT_EXTENTS.x_advance
 
             set_color(cr, FROM_COLOR_TYPE, FROM_COLOR_CUSTOM)
             set_font(cr, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
             local from_txt = (mail.from:gsub(":*$", "") .. ":")
             local from_txt_trimmed = trim_line_to_width(cr, from_txt, s(225) - (acc_width or 0))
-            cairo_move_to(cr, mail_x + acc_width, mail_y)
+cairo_move_to(cr, mail_x + acc_width, mail_y)
 			cairo_show_text(cr, from_txt_trimmed)
-            cairo_text_extents(cr, from_txt_trimmed, GLOBAL_TEXT_EXTENTS)
-            local from_width = GLOBAL_TEXT_EXTENTS.width
-            local from_x_advance = GLOBAL_TEXT_EXTENTS.x_advance
+            
+            -- OPTYMALIZACJA: Pobierz szerokość z cache (zamiast cairo_text_extents)
+            local from_x_advance = get_cached_width(cr, from_txt_trimmed, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
+            local from_width = from_x_advance -- W przybliżeniu width = x_advance (wystarczy do obliczeń)
 
             set_color(cr, SUBJECT_COLOR_TYPE, SUBJECT_COLOR_CUSTOM)
             set_font(cr, SUBJECT_FONT_NAME, SUBJECT_FONT_SIZE, SUBJECT_FONT_BOLD)
@@ -1814,7 +1984,7 @@ if ENABLE_NEW_MAIL_PULSE then
                 cairo_rectangle(cr, preview_x, preview_y - PREVIEW_FONT_SIZE, scroll_area, PREVIEW_FONT_SIZE + s(8))
 				cairo_clip(cr)
                 if ENABLE_PREVIEW_SCROLL and preview_chunks_width > scroll_area then
-                    local t = os.clock()
+				local t = get_precise_time()
                     local gap = s(48)
 					local scrollable = preview_chunks_width + gap
                     local scroll_offset = (t * preview_scroll_speed) % scrollable
@@ -1865,5 +2035,26 @@ previous_mail_ids = current_mail_ids_map
 
 if ids_have_changed then
         save_mail_ids_to_file(previous_mail_ids)
+        -- Skoro przyszły nowe maile, czyścimy cache tekstów, żeby zwolnić pamięć
+        TRIM_CACHE = {} 
+        WIDTH_CACHE = {}
+    end
+end
+
+-- ===================================================================
+-- === "PODUSZKA POWIETRZNA" (WRAPPER BEZPIECZEŃSTWA) ===
+-- ===================================================================
+local main_logic_function = conky_draw_mail_indicator
+
+function conky_draw_mail_indicator()
+    local status, err = xpcall(main_logic_function, function(e)
+        return debug.traceback(tostring(e), 2)
+    end)
+
+    if not status then
+        print("\n========================================================")
+        print("!!! CRITICAL LUA ERROR (Conky survive mode) !!!")
+        print(err)
+        print("========================================================\n")
     end
 end
