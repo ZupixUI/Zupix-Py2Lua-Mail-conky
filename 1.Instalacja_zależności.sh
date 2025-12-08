@@ -70,10 +70,12 @@ open_in_terminal_async() {
     if [ "$HOLD" = "1" ]; then
         HOLD_TAIL="; echo; echo '--- Instalacja zakończona. Naciśnij Enter, aby zamknąć terminal ---'; read -r _"
     fi
-    case "$TERM_CMD" in
+case "$TERM_CMD" in
         gnome-terminal)       gnome-terminal --wait -- bash -lc "$CMD$HOLD_TAIL" & ;;
-        xfce4-terminal)       xfce4-terminal --command "bash -lc \"$CMD$HOLD_TAIL\"" & ;;
-        konsole)              konsole -e bash -lc "$CMD$HOLD_TAIL" & ;;
+        # DODANO --disable-server
+        xfce4-terminal)       xfce4-terminal --disable-server --command "bash -lc \"$CMD$HOLD_TAIL\"" & ;;
+        # DODANO --nofork
+        konsole)              konsole --nofork -e bash -lc "$CMD$HOLD_TAIL" & ;;
         tilix)                tilix -- bash -lc "$CMD$HOLD_TAIL" & ;;
         mate-terminal)        mate-terminal --disable-factory -- bash -lc "$CMD$HOLD_TAIL" & ;;
         x-terminal-emulator)  x-terminal-emulator -e bash -lc "$CMD$HOLD_TAIL" & ;;
