@@ -2,11 +2,11 @@
 # 1.CLI_Instalacja_zależności.sh (v2.9 - Unknown PM & Gentoo Support)
 #
 # ZMIANY v2.9:
-# - Zsynchronizowano logikę z wersją Zenity v1.8.
+# - Zsynchronizowano logikę z wersją Zenity v1.9.
+# - Poprawiono obsługę terminali (flagi --wait, --disable-factory itp.).
 # - Dodano obsługę "Unknown PM" (instrukcja ręczna zamiast błędu).
 # - Dodano specjalny tryb dla Gentoo (wyświetlanie wymaganych flag USE).
-# - Pozwala pominąć sprawdzanie zależności w trybie nieznanego systemu,
-#   aby przejść do konfiguracji VENV.
+# - Pozwala pominąć sprawdzanie zależności w trybie nieznanego systemu.
 
 # --- DETEKCJA I URUCHOMIENIE W TERMINALU (gdy kliknięty z GUI) ---
 if [ ! -t 0 ]
@@ -43,16 +43,16 @@ then
             exec gnome-terminal -- bash -c "$CMD"
             ;;
         xfce4-terminal)
-            exec xfce4-terminal --command "bash -c \"$CMD\""
+            exec xfce4-terminal --disable-server --command "bash -c \"$CMD\""
             ;;
         konsole)
-            exec konsole -e bash -c "$CMD"
+            exec konsole --nofork -e bash -c "$CMD"
             ;;
         tilix)
             exec tilix -e "bash -c \"$CMD\""
             ;;
         mate-terminal)
-            exec mate-terminal -e "bash -c \"$CMD\""
+            exec mate-terminal --disable-factory -e "bash -c \"$CMD\""
             ;;
         x-terminal-emulator)
             exec x-terminal-emulator -e "bash -c \"$CMD\""
@@ -189,22 +189,22 @@ open_in_terminal_async() {
     local CMD="$1"
     local HOLD_TAIL="; echo; echo '--- Operacja zakończona. Naciśnij Enter, aby zamknąć to okno terminala ---'; read -r _"
 
-    # Uruchomienie komendy w nowym oknie terminala w tle
+    # FIX: Dodano flagi (wait, nofork, disable-factory) aby procesy nie uciekały w tło (jak w wersji GUI)
     case "$TERM_CMD" in
         gnome-terminal)
             gnome-terminal --wait -- bash -lc "$CMD$HOLD_TAIL" &
             ;;
         xfce4-terminal)
-            xfce4-terminal --command "bash -lc \"$CMD$HOLD_TAIL\"" &
+            xfce4-terminal --disable-server --command "bash -lc \"$CMD$HOLD_TAIL\"" &
             ;;
         konsole)
-            konsole -e bash -lc "$CMD$HOLD_TAIL" &
+            konsole --nofork -e bash -lc "$CMD$HOLD_TAIL" &
             ;;
         tilix)
             tilix -- bash -lc "$CMD$HOLD_TAIL" &
             ;;
         mate-terminal)
-            mate-terminal -- bash -lc "$CMD$HOLD_TAIL" &
+            mate-terminal --disable-factory -- bash -lc "$CMD$HOLD_TAIL" &
             ;;
         x-terminal-emulator)
             x-terminal-emulator -e bash -lc "$CMD$HOLD_TAIL" &
@@ -216,6 +216,7 @@ open_in_terminal_async() {
             "$TERM_CMD" -- bash -lc "$CMD$HOLD_TAIL" &
             ;;
     esac
+    echo $!
 }
 
 open_terminal_blank() {
@@ -378,26 +379,47 @@ then
         nixos)
             log_error "Na NixOS zainstaluj notify-send ręcznie przez configuration.nix"
             ;;
+        gentoo*)
+            echo
+            echo -e "${C_MAGENTA}${C_BOLD}💜 Wykryto Gentoo Linux 💜${C_RESET}"
+            log_warn "Brakuje narzędzia 'notify-send' (pakiet: x11-libs/libnotify)."
+            echo "Proszę zainstalować go ręcznie w innym oknie:"
+            echo -e "${C_BOLD}sudo emerge -av x11-libs/libnotify${C_BOLD}"
+            echo
+            prompt_confirm "Naciśnij Enter po zakończeniu instalacji, aby sprawdzić ponownie..."
+            
+            # Ponowne sprawdzenie
+            hash -r 2>/dev/null
+            if command -v notify-send &>/dev/null; then
+                log_success "Wykryto notify-send! Kontynuuję."
+                exec "$0" "$@"
+            else
+                log_error "Nadal nie wykryto notify-send. Skrypt kończy działanie."
+            fi
+            ;;
         *)
             PKG_NOTIFY="libnotify-bin"
             INSTALL_NOTIFY="sudo apt-get install -y $PKG_NOTIFY"
             ;;
     esac
 
-    log_warn "Brakuje narzędzia 'notify-send' (pakiet: $PKG_NOTIFY)."
-    choice=$(prompt_choice "Czy chcesz zainstalować je teraz?" "T/N" "T")
+    # Blok dla standardowych dystrybucji (nie Gentoo/NixOS)
+    if [[ "$DISTRO" != "gentoo" && "$DISTRO" != "nixos" ]]; then
+        log_warn "Brakuje narzędzia 'notify-send' (pakiet: $PKG_NOTIFY)."
+        choice=$(prompt_choice "Czy chcesz zainstalować je teraz?" "T/N" "T")
 
-    if [[ "${choice^^}" == "T" ]]
-    then
-        open_in_terminal_async "$INSTALL_NOTIFY"
-        log_info "Instalacja $PKG_NOTIFY została uruchomiona w nowym oknie terminala."
-        log_info "Jeśli zostaniesz poproszony o hasło, wpisz je w tamtym oknie."
-        log_info "Po zakończeniu instalacji, uruchom ten skrypt ponownie."
-        prompt_confirm
-        exec "$0" "$@"
-        exit 0
-    else
-        log_error "Instalacja 'notify-send' jest wymagana. Anulowano."
+        if [[ "${choice^^}" == "T" ]]
+        then
+            open_in_terminal_async "$INSTALL_NOTIFY"
+            log_info "Instalacja $PKG_NOTIFY została uruchomiona w nowym oknie terminala."
+            log_info "Jeśli zostaniesz poproszony o hasło, wpisz je w tamtym oknie."
+            log_info "Po zakończeniu instalacji, uruchom ten skrypt ponownie."
+            prompt_confirm
+            exec "$0" "$@"
+            exit 0
+        else
+            log_error "Instalacja 'notify-send' jest wymagana. Anulowano."
+        fi
     fi
 fi
 
