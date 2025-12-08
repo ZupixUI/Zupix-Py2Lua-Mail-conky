@@ -1,7 +1,17 @@
+-- ============================================================
+-- AUTO-DETEKCJA ŚCIEŻKI (PORTABLE MODE)
+-- ============================================================
+-- 1. Pobieramy ścieżkę do katalogu, w którym leży ten plik .conf
+--    (zakładamy, że jest to główny katalog projektu)
+local project_root = debug.getinfo(1, "S").source:match("@(.*/)") or "./"
+
+-- 2. Budujemy pełną ścieżkę do skryptu Lua w podkatalogu 'lua/'
+local lua_script_path = project_root .. "lua/e-mail.lua"
+-- ============================================================
+
 conky.config = {
 
     -- OGÓLNE I OKNO
-	
     background              = true,                 -- (true/false) Uruchamia Conky jako proces w tle.
     use_xft                 = true,                 -- (true/false) Włącza wygładzanie czcionek z użyciem XFT.
     xftalpha                = 1.0,                  -- (0.0–1.0) Przezroczystość tekstu; 0.0 = przezroczysty, 1.0 = w pełni widoczny.
@@ -10,7 +20,6 @@ conky.config = {
     total_run_times         = 0,                    -- (0 = nieskończoność, X = zakończ po X sekundach).
 
     -- OKNO CONKY
-
     own_window              = true,                 -- (true/false) Czy Conky działa jako osobne okno.
     own_window_type         = 'normal',             -- Typ okna:
     own_window_title 		= 'Conky_Mail',         --   'normal'    – klasyczne, standardowe okno,
@@ -37,7 +46,6 @@ conky.config = {
     double_buffer           = true,                 -- (true/false) Włącza podwójne buforowanie – redukuje migotanie.
 
     -- STYL I KOLORY
-
     default_color           = '#ffffff',            -- Kolor domyślny (biały).
     default_shade_color     = '#000000',            -- Kolor cienia pod tekstem.
     default_outline_color   = '#000000',            -- Kolor konturu tekstu.
@@ -53,7 +61,6 @@ conky.config = {
     color4                  = '#bd93f9',            -- ${color4} – fioletowy (np. nagłówki).
 
     -- WYMIARY I POZYCJONOWANIE
-
     minimum_width           = 750,                  -- Minimalna szerokość okna (w pikselach).
     minimum_height          = 510,                  -- Minimalna wysokość okna (w pikselach).
     alignment               = 'bottom_right',
@@ -62,14 +69,12 @@ conky.config = {
     gap_y                   = 5,                   -- Odstęp od góry/dolnej krawędzi ekranu (w pikselach).
 
     -- WYDAJNOŚĆ I PRÓBKOWANIE DANYCH
-
     no_buffers              = true,                 -- (true/false) Pomija buforowaną pamięć RAM w wyświetlaniu.
     cpu_avg_samples         = 2,                    -- Liczba próbek do uśrednienia użycia CPU.
     diskio_avg_samples      = 2,                    -- Liczba próbek do uśrednienia danych I/O dysku.
     net_avg_samples         = 2,                    -- Liczba próbek do uśrednienia transferu sieciowego.
 
     -- FORMATOWANIE, UTF-8, ZNAKI SPECJALNE
-
     override_utf8_locale    = true,                 -- (true/false) Wymusza obsługę UTF-8 (dla polskich znaków itp.).
     uppercase               = false,                -- (true/false) true = cały tekst pisany wielkimi literami.
     use_spacer              = 'none',               -- Wyrównanie kolumn.
@@ -78,13 +83,14 @@ conky.config = {
     text_buffer_size        = 2048,                 -- Maksymalna długość renderowanego tekstu.
 
     -- INTERFEJSY SIECIOWE
-
     if_up_strictness        = 'address',            -- Kryterium aktywności interfejsu sieciowego.
 
     -- LUA, WTYCZKI I FUNKCJE ZEWNĘTRZNE
+    -- Używamy zmiennej 'lua_script_path' wyliczonej na początku pliku
+    lua_load = lua_script_path,
     
-    lua_load = '/home/przemek_mint/Projekty/Zupix-Py2Lua-Mail-conky-v1.1.0_dla_Simple/lua/e-mail.lua',
-    lua_draw_hook_post = 'draw_mail_indicator',
+    -- Nazwa funkcji zgodna z tą w pliku e-mail.lua (conky_draw_mail_indicator)
+    lua_draw_hook_post = 'conky_draw_mail_indicator',
 };
 
 conky.text = [[

@@ -12,8 +12,8 @@ cd "$(dirname "$(readlink -f "$0")")"
 ACCOUNTS_JSON="config/accounts.json"
 EMAIL_LUA="lua/e-mail.lua"
 # Nowe zmienne dla logiki wyjścia
-QUESTION_FLAG="config/.question_4.START"
-START_SCRIPT="./4.START_RESTART_skryptów_oraz_conky.sh"
+QUESTION_FLAG="config/.question_3.START"
+START_SCRIPT="./3.START_RESTART_skryptów_oraz_conky.sh"
 
 # Sprawdzenie, czy 'jq' jest zainstalowany
 if ! command -v jq &> /dev/null; then
@@ -329,7 +329,7 @@ while true; do
             # Sprawdź, czy plik flagi nie istnieje
             if [ ! -f "$QUESTION_FLAG" ]; then
                 # Jeśli nie istnieje, zadaj pytanie
-                if zenity --question --text="Czy chcesz uruchomić skrypt 4.START_RESTART_skryptów_oraz_conky.sh, który uruchomi widget?"; then
+                if zenity --question --text="Czy chcesz uruchomić skrypt 3.START_RESTART_skryptów_oraz_conky.sh, który uruchomi widget?"; then
                     # Jeśli użytkownik kliknie "Tak", utwórz plik flagi
                     # Upewnij się, że katalog 'config' istnieje
                     mkdir -p "$(dirname "$QUESTION_FLAG")"

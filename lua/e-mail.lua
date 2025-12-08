@@ -16,6 +16,10 @@ SHOW_DEBUG_BORDER = false
 local script_path = debug.getinfo(1, "S").source:match("@(.*/)")
 package.path = package.path .. ";" .. script_path .. "?.lua"
 
+-- Ustalenie głównego katalogu projektu (wyjście piętro wyżej z folderu 'lua/')
+-- Dzięki temu skrypt działa z dowolnej lokalizacji bez potrzeby hardcodowania ścieżek.
+local project_dir = script_path .. "../"
+
 -- ————————————————————————— SKALOWANIE ———————————————————————————————
 -- Zmieniaj wartość zmiennej SCALE, aby skalować widget
 -- 1.0 = 100% (rozmiar bazowy)
@@ -112,17 +116,20 @@ local SHOW_MAIL_PREVIEW = true -- Wyświetlanie drugiej linii tekstu z podgląde
 local ATTACHMENT_ICON_ENABLE = true -- Wyświetlanie ikony załącznika (spinacza) przy mailach, które go posiadają.
 local ENABLE_PREVIEW_SCROLL = true -- Włączenie animacji przewijania dla podglądu treści maila, jeśli tekst jest zbyt długi.
 
---———————————— Ścieżki do plików ————————————
-local ATTACHMENT_ICON_IMAGE = ""
-local MAX_MAILS_FILE = ""
-local NEW_MAIL_SOUND = ""
-local SHAKE_SOUND = ""
-local ENVELOPE_IMAGE = ""
+--———————————— Ścieżki do plików (ZMODYFIKOWANE NA RELATYWNE) ————————————
+-- Teraz korzystają z dynamicznie wykrytej ścieżki 'project_dir'
+local ATTACHMENT_ICON_IMAGE = project_dir .. "icons/spinacz1.png"
+local MAX_MAILS_FILE        = project_dir .. "config/mail_conky_max"
+local NEW_MAIL_SOUND        = project_dir .. "sound/nowy_mail.wav"
+local SHAKE_SOUND           = project_dir .. "sound/shake_2.wav"
+local ENVELOPE_IMAGE        = project_dir .. "icons/mail.png"
+
+-- Ścieżki systemowe / tymczasowe (pozostają bez zmian)
 local MAIL_SOUND_PLAYED_FILE = "/dev/shm/Zupix-Py2Lua-Mail-conky/mail_sound_played"
-local MAIL_ACCOUNT_FILE = "/dev/shm/Zupix-Py2Lua-Mail-conky/conky_mail_account"
-local MAIL_IDS_FILE = "/dev/shm/Zupix-Py2Lua-Mail-conky/mail_ids_seen.json"
-local MAIL_CACHE_FILE = "/dev/shm/Zupix-Py2Lua-Mail-conky/mail_cache.json"
-local MAIL_ERROR_FILE = "/dev/shm/Zupix-Py2Lua-Mail-conky/mail_cache.err"
+local MAIL_ACCOUNT_FILE      = "/dev/shm/Zupix-Py2Lua-Mail-conky/conky_mail_account"
+local MAIL_IDS_FILE          = "/dev/shm/Zupix-Py2Lua-Mail-conky/mail_ids_seen.json"
+local MAIL_CACHE_FILE        = "/dev/shm/Zupix-Py2Lua-Mail-conky/mail_cache.json"
+local MAIL_ERROR_FILE        = "/dev/shm/Zupix-Py2Lua-Mail-conky/mail_cache.err"
 
 --———————————— Licznik "Badge" ————————————
 -- Określa, jaka wartość liczbowa ma być wyświetlana na liczniku (badge).

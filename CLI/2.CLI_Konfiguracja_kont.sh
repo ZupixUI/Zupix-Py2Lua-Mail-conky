@@ -43,10 +43,10 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 # Pliki konfiguracyjne znajdują się w katalogu głównym projektu
 ACCOUNTS_JSON="$PROJECT_DIR/config/accounts.json"
 EMAIL_LUA="$PROJECT_DIR/lua/e-mail.lua"
-QUESTION_FLAG="$PROJECT_DIR/config/.question_4.START"
+QUESTION_FLAG="$PROJECT_DIR/config/.question_3.START"
 
 # Kolejny skrypt znajduje się w tym samym katalogu co ten (CLI)
-START_SCRIPT="$SCRIPT_DIR/4.CLI_START_RESTART_skryptów_oraz_conky.sh"
+START_SCRIPT="$SCRIPT_DIR/3.CLI_START_RESTART_skryptów_oraz_conky.sh"
 
 # --- BIBLIOTEKA FUNKCJI CLI ---
 C_RESET='\033[0m'; C_RED='\033[0;31m'; C_GREEN='\033[0;32m'; C_YELLOW='\033[0;33m'; C_CYAN='\033[0;36m'; C_BOLD='\033[1m'
@@ -223,7 +223,7 @@ while true; do
         case "$opt" in
             "❌ Zakończ")
                 if [ ! -f "$QUESTION_FLAG" ]; then
-                    choice=$(prompt_choice "Czy chcesz uruchomić skrypt 4.START..., który uruchomi widget?" "T/N" "T")
+                    choice=$(prompt_choice "Czy chcesz uruchomić skrypt 3.START..., który uruchomi widget?" "T/N" "T")
                     if [[ "${choice^^}" == "T" ]]; then
                         mkdir -p "$(dirname "$QUESTION_FLAG")"
                         touch "$QUESTION_FLAG"

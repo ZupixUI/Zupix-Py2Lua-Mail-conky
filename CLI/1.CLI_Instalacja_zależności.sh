@@ -1,13 +1,12 @@
 #!/bin/bash
-# 1.CLI_Instalacja_zależności.sh (v2.8-cli-OM-cooker-warning)
-# - Przystosowano do uruchamiania z podkatalogu 'CLI'.
-# - Skrypt zmienia katalog roboczy na ROOT projektu.
-# - Kod sformatowany w stylu "verbose".
-# - POPRAWKA: Dźwięk powiadomienia odtwarza się tylko raz.
-# - NOWOŚĆ: Obsługa OpenMandriva (conky z cooker).
-# - NOWOŚĆ: Opcja pominięcia sprawdzania zależności (P).
-# - FIX: Poprawne sprawdzanie python-ensurepip.
-# - v2.8: Dodano ostrzeżenie CLI dla OpenMandriva (repo Cooker).
+# 1.CLI_Instalacja_zależności.sh (v2.9 - Unknown PM & Gentoo Support)
+#
+# ZMIANY v2.9:
+# - Zsynchronizowano logikę z wersją Zenity v1.8.
+# - Dodano obsługę "Unknown PM" (instrukcja ręczna zamiast błędu).
+# - Dodano specjalny tryb dla Gentoo (wyświetlanie wymaganych flag USE).
+# - Pozwala pominąć sprawdzanie zależności w trybie nieznanego systemu,
+#   aby przejść do konfiguracji VENV.
 
 # --- DETEKCJA I URUCHOMIENIE W TERMINALU (gdy kliknięty z GUI) ---
 if [ ! -t 0 ]
@@ -88,6 +87,7 @@ C_GREEN='\033[0;32m'
 C_YELLOW='\033[0;33m'
 C_BLUE='\033[0;34m'
 C_CYAN='\033[0;36m'
+C_MAGENTA='\033[0;35m' # Dla Gentoo
 C_BOLD='\033[1m'
 
 # Funkcje logujące
@@ -158,14 +158,12 @@ trap 'log_error "Nieoczekiwany błąd w skrypcie w sekcji: $BASH_COMMAND"' ERR
 
 # Odtwarzanie dźwięku
 play_start_sound() {
-  if [[ -f "$START_SOUND" ]]
-  then
-    if command -v paplay &> /dev/null
-    then
-      paplay "$START_SOUND" &
-    elif command -v aplay &> /dev/null
-    then
-      aplay -q "$START_SOUND" &
+  if [[ -f "$START_SOUND" ]]; then
+    if command -v paplay &> /dev/null; then
+      # Dodano >/dev/null 2>&1 aby ukryć błędy Connection refused na Gentoo/ALSA
+      paplay "$START_SOUND" >/dev/null 2>&1 & 
+    elif command -v aplay &> /dev/null; then
+      aplay -q "$START_SOUND" >/dev/null 2>&1 &
     fi
   fi
 }
@@ -225,8 +223,16 @@ open_terminal_blank() {
 }
 
 # --- Detekcja pakietów ---
+UNKNOWN_PM=0
+GENTOO_MODE=0
+
 is_pkg_installed() {
     local pkg="$1"
+
+    # Jeśli nie znamy PM, zakładamy, że pakiet nie jest zainstalowany (wymusi wejście do pętli)
+    if [ "$UNKNOWN_PM" == "1" ]; then
+        return 1
+    fi
 
     # Specjalny przypadek: python3-venv (na Debian/Ubuntu/Mint)
     if [[ "$PM" == "apt-get" && "$pkg" == "python3-venv" ]]
@@ -293,14 +299,14 @@ then
     log_info "Proszę wybrać swoją dystrybucję z listy poniżej:"
     options=(
         "Fedora" "Ubuntu" "Debian" "LinuxMint"
-        "Arch/Manjaro/Inne" "openSUSE" "Solus" "OpenMandriva" "NixOS"
+        "Arch/Manjaro/Inne" "openSUSE" "Solus" "OpenMandriva" "NixOS" "Gentoo"
         "Inna (oparta o Debian)" "Inna (oparta o Arch)" "Inna (oparta o RPM)"
         "Wyjdź"
     )
     select opt in "${options[@]}"
     do
         case $opt in
-            "Fedora"|"Ubuntu"|"Debian"|"LinuxMint"|"openSUSE"|"Solus"|"OpenMandriva"|"NixOS")
+            "Fedora"|"Ubuntu"|"Debian"|"LinuxMint"|"openSUSE"|"Solus"|"OpenMandriva"|"NixOS"|"Gentoo")
                 DISTRO_LABEL=$opt
                 break
                 ;;
@@ -504,6 +510,14 @@ case "$DISTRO" in
     log_info "NixOS wykryty. Zainstaluj ręcznie pakiety: conky, lua, wget, noto-fonts-emoji przez configuration.nix."
     exit 0
     ;;
+  
+  gentoo)
+    UNKNOWN_PM=1
+    GENTOO_MODE=1
+    # Lista z instrukcjami w formacie dla CLI (ANSI)
+    MANUAL_INSTRUCTIONS="${C_BOLD}app-admin/conky${C_RESET} - wymagane flagi USE: ${C_BOLD}lua-cairo${C_RESET}, ${C_BOLD}lua-cairo-xlib${C_RESET}, ${C_BOLD}bundled-toluapp${C_RESET}\n${C_BOLD}dev-lang/lua${C_RESET}\n${C_BOLD}net-misc/wget${C_RESET}\n${C_BOLD}app-misc/jq${C_RESET}\n${C_BOLD}media-fonts/noto-emoji${C_RESET} (lub inne, np. Google Fonts)\nPython venv (zazwyczaj wbudowany w ${C_BOLD}dev-lang/python${C_RESET})"
+    REQUIRED_PACKAGES=("manual_action_required")
+    ;;
 
   *)
     if command -v apt-get &>/dev/null
@@ -531,7 +545,10 @@ case "$DISTRO" in
       PREINSTALL_CMD="sudo pacman -Sy"
       REQUIRED_PACKAGES=(conky wget lua jq noto-fonts-emoji)
     else
-      log_error "Nie rozpoznano menedżera pakietów. Zainstaluj ręcznie: conky, lua, wget, python3-venv oraz czcionkę Noto Color Emoji."
+      # --- UNKNOWN PM FALLBACK ---
+      UNKNOWN_PM=1
+      MANUAL_INSTRUCTIONS="${C_BOLD}conky${C_RESET} (z obsługą cairo)\n${C_BOLD}lua${C_RESET}\n${C_BOLD}wget${C_RESET}\n${C_BOLD}jq${C_RESET}\n${C_BOLD}fonts-noto-color-emoji${C_RESET} (lub podobna czcionka kolorowa)\n${C_BOLD}python venv${C_RESET} (zależnie od distro)"
+      REQUIRED_PACKAGES=("manual_action_required")
     fi
     ;;
 esac
@@ -543,6 +560,50 @@ while true
 do
     # Pre-inkrementacja (zwiększa przed zwróceniem wartości)
     ((++ATTEMPT_COUNTER))
+    
+    # Dźwięk tylko przy pierwszym wykryciu (dla każdego obiegu pętli, o ile nie uciszono)
+    if [ "$ATTEMPT_COUNTER" -eq 1 ]
+    then
+        play_start_sound
+    fi
+
+    # --- OBSŁUGA UNKNOWN_PM (Gentoo i inne) ---
+    if [ "$UNKNOWN_PM" -eq 1 ]; then
+        echo
+        if [ "$GENTOO_MODE" -eq 1 ]; then
+            echo -e "${C_MAGENTA}${C_BOLD}💜 Specjalny wyjątek dla Gentoo :) 💜${C_RESET}"
+            echo -e "Skrypt nie posiada automatycznych reguł instalacji (emerge) dla tego systemu."
+        else
+            echo -e "${C_RED}${C_BOLD}❌ Nie rozpoznano menedżera pakietów! ❌${C_RESET}"
+            echo -e "Skrypt nie posiada automatycznych reguł instalacji dla tego systemu."
+        fi
+        
+        echo -e "\n${C_YELLOW}Musisz ręcznie zainstalować poniższe pakiety:${C_RESET}"
+        echo -e "${MANUAL_INSTRUCTIONS}"
+        echo
+        
+        log_info "Wybierz akcję:"
+        echo "  [P] - Pomiń sprawdzanie zależności (Nie sprawdzaj pakietów, przejdź do Python venv)."
+        echo "  [A] - Anuluj i zakończ skrypt."
+        
+        choice=$(prompt_choice "Twój wybór?" "P/A" "A")
+        
+        if [[ "${choice^^}" == "P" ]]; then
+            echo -e "${C_RED}${C_BOLD}⚠️  OSTRZEŻENIE! ⚠️${C_RESET}"
+            echo -e "${C_RED}Pominięcie tego kroku oznacza ryzyko błędów w działaniu widżetu, jeśli brakuje Conky lub Lua.${C_RESET}"
+            confirm_skip=$(prompt_choice "Czy na pewno chcesz kontynuować?" "T/N" "N")
+            if [[ "${confirm_skip^^}" == "T" ]]; then
+                log_warn "Pominięto sprawdzanie pakietów systemowych."
+                break # Wyjście z pętli instalacji pakietów -> przejście do VENV
+            else
+                continue # Wróć do początku pętli (ponowne wyświetlenie instrukcji)
+            fi
+        else
+            log_info "Instalacja przerwana przez użytkownika."
+            exit 0
+        fi
+    fi
+    # --- KONIEC OBSŁUGI UNKNOWN_PM ---
 
     MISSING_NOW=()
     for pkg in "${REQUIRED_PACKAGES[@]}"
@@ -557,12 +618,6 @@ do
     then
         log_success "Wszystkie wymagane pakiety są już zainstalowane!"
         break
-    fi
-
-    # Dźwięk tylko przy pierwszym wykryciu
-    if [ "$ATTEMPT_COUNTER" -eq 1 ]
-    then
-        play_start_sound
     fi
 
     if [ "$ATTEMPT_COUNTER" -gt 1 ]
@@ -767,11 +822,11 @@ prompt_confirm
 trap - ERR
 log_success "Skrypt zakończył instalację zależności! 🎉"
 echo
-log_info "Kolejnym krokiem jest uruchomienie skryptu '2.CLI_Podmiana_ścieżek_bezwzględnych_w_zmiennych.sh',"
+log_info "Kolejnym krokiem jest uruchomienie skryptu '2.CLI_Konfiguracja_kont.sh',"
 log_info "który jest konieczny do prawidłowego działania widgetu."
 
 # Zdefiniowanie ścieżki do następnego skryptu (w tym samym katalogu CLI)
-NEXT_SCRIPT="$SCRIPT_DIR/2.CLI_Podmiana_ścieżek_bezwzględnych_w_zmiennych.sh"
+NEXT_SCRIPT="$SCRIPT_DIR/2.CLI_Konfiguracja_kont.sh"
 
 choice=$(prompt_choice "Czy chcesz go uruchomić teraz?" "T/N" "T")
 if [[ "${choice^^}" == "T" ]]
@@ -784,7 +839,7 @@ then
         log_error "Nie znaleziono pliku '$NEXT_SCRIPT'!"
     fi
 else
-    log_info "Zakończono. Pamiętaj, aby ręcznie uruchomić skrypt '2.CLI_Podmiana_ścieżek_bezwzględnych_w_zmiennych.sh'."
+    log_info "Zakończono. Pamiętaj, aby ręcznie uruchomić skrypt '2.CLI_Konfiguracja_kont.sh'."
 fi
 
 exit 0

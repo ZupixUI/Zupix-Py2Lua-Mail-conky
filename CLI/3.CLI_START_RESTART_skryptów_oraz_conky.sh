@@ -1,8 +1,10 @@
 #!/bin/bash
-# 4.CLI_START_RESTART_skryptów_oraz_conky.sh (v5.1-cli-readable)
+# 3.CLI_START_RESTART_skryptów_oraz_conky.sh (v5.2-cli-nuclear-fix)
 # - Przystosowano do uruchamiania z podkatalogu 'CLI'.
 # - Skrypt zmienia katalog roboczy na ROOT projektu.
-# - Kod sformatowany w stylu "verbose" (każda komenda w nowej linii) dla maksymalnej czytelności.
+# - Kod sformatowany w stylu "verbose" dla maksymalnej czytelności.
+# - POPRAWKA: Atomowe zamykanie (szybki kill conky, grzeczny kill pythona).
+# - POPRAWKA: Czyste logi (użycie disown).
 
 # --- DETEKCJA I URUCHOMIENIE W TERMINALU (gdy kliknięty z GUI) ---
 if [ ! -t 0 ]
@@ -225,35 +227,44 @@ flock -n 200 || {
     then
         log_info "Zatrzymywanie procesów..."
         
-        if [ -f "$RESPAWN_PID_FILE" ]
+        # 1. Zabijamy watchdogi natychmiastowo (-9) i czyścimy logi
+        if [ -f "$RESPAWN_PID_FILE" ]; then kill -9 "$(cat "$RESPAWN_PID_FILE")" 2>/dev/null; rm -f "$RESPAWN_PID_FILE"; fi
+        if [ -f "$RAM_PID_FILE" ]; then kill -9 "$(cat "$RAM_PID_FILE")" 2>/dev/null; rm -f "$RAM_PID_FILE"; fi
+        
+        # ======================================================
+        #  POPRAWKA: "Szybkie Conky, Grzeczny Python"
+        # ======================================================
+        
+        # 2. Conky: ATOMOWE UDERZENIE (-9). 
+        pkill -9 -f "conky.*-c $CONKY_CONF"
+        
+        # 3. Python: GRZECZNE ZAMKNIĘCIE (SIGTERM).
+        PY_PIDS=$(pgrep -f "python3.*${PYTHON_SCRIPT}")
+        if [ -n "$PY_PIDS" ]
         then
-            kill "$(cat "$RESPAWN_PID_FILE")" 2>/dev/null
-            rm -f "$RESPAWN_PID_FILE"
+            kill $PY_PIDS 2>/dev/null
+            
+            # Czekamy aktywnie (max 5 sekund)
+            for i in {1..50}
+            do
+                if ! kill -0 $PY_PIDS 2>/dev/null
+                then
+                    break
+                fi
+                sleep 0.1
+            done
+            
+            # Jeśli dalej wisi -> dobijamy
+            if kill -0 $PY_PIDS 2>/dev/null
+            then
+                kill -9 $PY_PIDS 2>/dev/null
+            fi
         fi
         
-        if [ -f "$RAM_PID_FILE" ]
-        then
-            kill "$(cat "$RAM_PID_FILE")" 2>/dev/null
-            rm -f "$RAM_PID_FILE"
-        fi
-        
-        sleep 0.1
-        
-        if [ -f "$CONKY_PID_FILE" ] && [ -n "$(cat "$CONKY_PID_FILE")" ]
-        then
-            kill -9 "$(cat "$CONKY_PID_FILE")" 2>/dev/null
-        else
-            pkill -9 -f "conky.*-c $CONKY_CONF"
-        fi
-        
-        PIDS=$(pgrep -f "python3.*${PYTHON_SCRIPT}")
-        if [ -n "$PIDS" ]
-        then
-            kill $PIDS 2>/dev/null
-        fi
-        
+        # 4. Bezpieczne usuwanie cache
         rm -rf "$CACHE_DIR"
-        notify-send "✅ Wszystko wyłączone" "Procesy conky/py zostały zakończone."
+        
+        notify-send "✅ Wyłączono" "Procesy zakończone poprawnie."
         log_success "Wszystkie procesy zostały zatrzymane."
         
         restart_choice=$(prompt_choice "Czy chcesz teraz uruchomić widget ponownie?" "T/N" "T")
@@ -261,14 +272,12 @@ flock -n 200 || {
         then
             log_info "Uruchamiam ponownie..."
             notify-send "🔁 Restartuję!"
-            # Używamy $SCRIPT_PATH, aby restarter wiedział dokładnie co uruchomić
             exec bash "$SCRIPT_PATH" "$@"
         else
             log_info "Zakończono. Widget nie został ponownie uruchomiony."
             exit 0
         fi
     fi
-    # Jeśli użytkownik wybrał 'N' przy pytaniu o zatrzymanie, kończymy ten proces (bo instancja już działa)
     exit 1
 }
 
@@ -280,7 +289,6 @@ then
 fi
 
 # --- PĘTLA RESPAWN CONKY (W TLE) ---
-# Uruchamiamy w tle nieskończoną pętlę, która dba o to, by Conky działał
 while true
 do
     if ! pgrep -u "$USER" -f "conky.*-c $CONKY_CONF" > /dev/null
@@ -291,11 +299,11 @@ do
     sleep 0.15
 done &
 
-# Zapisujemy PID procesu respawn (powyższej pętli while)
+# Zapisujemy PID procesu respawn
 echo $! > "$RESPAWN_PID_FILE"
+disown $! # FIX: Ukryj komunikat "Unicestwiony" w terminalu
 
 # --- PĘTLA WATCHDOG RAM (W TLE) ---
-# Monitoruje zużycie RAM przez Conky
 while true
 do
     CONKY_PIDS=$(pgrep -u "$USER" -f "conky.*-c $CONKY_CONF")
@@ -324,6 +332,7 @@ done &
 
 # Zapisujemy PID watchdoga
 echo $! > "$RAM_PID_FILE"
+disown $! # FIX: Ukryj komunikat "Unicestwiony" w terminalu
 
 # --- URUCHOMIENIE PYTHON BACKEND ---
 VENV_DIR="./py/venv"
@@ -380,17 +389,17 @@ else
     # Sprzątanie w razie awarii startu
     if [ -f "$RESPAWN_PID_FILE" ]
     then
-        kill "$(cat "$RESPAWN_PID_FILE")" 2>/dev/null
+        kill -9 "$(cat "$RESPAWN_PID_FILE")" 2>/dev/null
         rm -f "$RESPAWN_PID_FILE"
     fi
     
     if [ -f "$RAM_PID_FILE" ]
     then
-        kill "$(cat "$RAM_PID_FILE")" 2>/dev/null
+        kill -9 "$(cat "$RAM_PID_FILE")" 2>/dev/null
         rm -f "$RAM_PID_FILE"
     fi
     
-    pkill -f "conky.*-c $CONKY_CONF"
+    pkill -9 -f "conky.*-c $CONKY_CONF"
     kill $PY_PID 2>/dev/null
     
     log_error "Nie utworzono pliku cache. Backend Pythona zakończył się błędem. Sprawdź logi powyżej."
@@ -401,18 +410,19 @@ fi
 wait $PY_PID
 
 # --- SEKCJA SPRZĄTAJĄCA (PO ZAKOŃCZENIU PYTHONA) ---
+# Jeśli Python padł sam z siebie (crash), czyścimy resztę
 if [ -f "$RESPAWN_PID_FILE" ]
 then
-    kill "$(cat "$RESPAWN_PID_FILE")" 2>/dev/null
+    kill -9 "$(cat "$RESPAWN_PID_FILE")" 2>/dev/null
     rm -f "$RESPAWN_PID_FILE"
 fi
 
 if [ -f "$RAM_PID_FILE" ]
 then
-    kill "$(cat "$RAM_PID_FILE")" 2>/dev/null
+    kill -9 "$(cat "$RAM_PID_FILE")" 2>/dev/null
     rm -f "$RAM_PID_FILE"
 fi
 
-pkill -f "conky.*-c $CONKY_CONF"
+pkill -9 -f "conky.*-c $CONKY_CONF"
 
 exit 0

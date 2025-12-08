@@ -71,38 +71,46 @@ flock -n 200 || {
         zenity --question \
             --title="Zupix-Py2Lua-Mail-conky – już działa!" \
             --text="<big><big><b>Zupix_Py2Lua_Mail_conky</b> już działa w tle!</big></big>\n\nCzy chcesz wyłączyć widget i zamknąć WSZYSTKIE powiązane z nim procesy?\n\nWyłączony zostanie proces <b>conky</b>, skrypt - <b>ZupixPyMail.py</b> oraz usunięty cache - <b>/dev/shm/Zupix-Py2Lua-Mail-conky/mail_cache.json</b> + inne pliki tymczasowe.)"
-        if [ $? -eq 0 ]; then
-            # Najpierw zabij watchdogi!
-            if [ -f "$RESPAWN_PID_FILE" ]; then kill $(cat "$RESPAWN_PID_FILE") 2>/dev/null; rm -f "$RESPAWN_PID_FILE"; fi
-            if [ -f "$RAM_PID_FILE" ]; then kill $(cat "$RAM_PID_FILE") 2>/dev/null; rm -f "$RAM_PID_FILE"; fi
-            sleep 0.01
-
+if [ $? -eq 0 ]; then
+            # 1. Zabijamy watchdogi (żeby nie podniosły Conky za chwilę)
+            if [ -f "$RESPAWN_PID_FILE" ]; then kill -9 $(cat "$RESPAWN_PID_FILE") 2>/dev/null; rm -f "$RESPAWN_PID_FILE"; fi
+            if [ -f "$RAM_PID_FILE" ]; then kill -9 $(cat "$RAM_PID_FILE") 2>/dev/null; rm -f "$RAM_PID_FILE"; fi
+            
             # ========================================================================================
-            #  POCZĄTEK POPRAWKI: Precyzyjne zabijanie Conky po PID i natychmiastowe usuwanie cache
+            #  POPRAWKA: "Szybkie Conky, Grzeczny Python"
             # ========================================================================================
-      
-    
-			# 1. Wyślij NAJSZYBSZY sygnał `kill -9` do Conky
-            if [ -f "$CONKY_PID_FILE" ]; then
-                CONKY_TO_KILL=$(cat "$CONKY_PID_FILE")
-                # Wyślij SIGKILL i natychmiast przejdź dalej
-                if [ -n "$CONKY_TO_KILL" ]; then kill -9 "$CONKY_TO_KILL" 2>/dev/null; fi
-            else
-                # Metoda awaryjna
-                pkill -9 -f "conky.*-c $CONKY_CONF"
+            
+            # 2. Conky: ATOMOWE UDERZENIE (-9). 
+            # Musi zniknąć natychmiast, zanim usuniemy cache, żeby nie było widać pustych pól.
+            pkill -9 -u "$USER" -f "conky.*-c $CONKY_CONF"
+            
+            # 3. Python: GRZECZNE ZAMKNIĘCIE (SIGTERM).
+            # Dajemy mu szansę na zamknięcie wątków i wypisanie logów.
+            PY_PIDS=$(pgrep -f "python3.*${PYTHON_SCRIPT}")
+            if [ -n "$PY_PIDS" ]; then
+                kill $PY_PIDS 2>/dev/null
+                
+                # Czekamy aktywnie, aż Python się zamknie (max 5 sekund)
+                # Dzięki temu terminal nie "urwie" logów, a cache nie zniknie "spod nóg"
+                for i in {1..50}; do
+                    if ! kill -0 $PY_PIDS 2>/dev/null; then
+                        break # Python zakończył działanie
+                    fi
+                    sleep 0.1
+                done
+                
+                # Jeśli po 5 sekundach Python dalej wisi -> dobijamy go
+                kill -9 $PY_PIDS 2>/dev/null
             fi
             
-            # 2. Zabij Pythona i watchdogi w tle
-            PIDS=$(pgrep -f "python3.*${PYTHON_SCRIPT}")
-            if [ -n "$PIDS" ]; then kill $PIDS 2>/dev/null & fi
-            
-            # 3. Usuń cache (to wykona się po wysłaniu sygnałów kill)
+            # 4. Dopiero teraz bezpiecznie usuwamy cache
             rm -rf "$CACHE_DIR"
 
-            notify-send "✅ Wszystko wyłączone" "Procesy conky/py zostały zakończone, blokada usunięta."
-            if zenity --question --title="Restart Conky Mail" --text="Czy chcesz ponownie uruchomić skrypt <b>4.START_RESTART_skryptów_oraz_conky.sh?</b>"; then
-                notify-send "🔁 Restartuję!" "Ponownie uruchamiam 3.START_skryptu_oraz_conky.sh"
-                exec "$0"
+            notify-send "✅ Wyłączono" "Procesy zakończone poprawnie."
+            
+            if zenity --question --title="Restart Conky Mail" --text="Czy chcesz ponownie uruchomić skrypt <b>3.START_RESTART_skryptów_oraz_conky.sh?</b>"; then
+                notify-send "🔁 Restartuję!" "Ponownie uruchamiam..."
+                exec "$0" "$@"
             else
                 notify-send "🛑 Zakończono" "Nie uruchamiam ponownie. Wszystko zamknięte."
                 exit 0
@@ -136,6 +144,7 @@ while true; do
     sleep 0.15
 done &
 RESPAWN_PID=$!
+disown $RESPAWN_PID  # <--- DODANO: Bash nie będzie raportował zabicia tego procesu
 echo $RESPAWN_PID > "$RESPAWN_PID_FILE"
 
 # --- Watchdog RAM jako luźna pętla ---
@@ -158,6 +167,7 @@ while true; do
     sleep 5
 done &
 RAM_PID=$!
+disown $RAM_PID  # <--- DODANO: Bash nie będzie raportował zabicia tego procesu
 echo $RAM_PID > "$RAM_PID_FILE"
 
 # --- Uruchamianie skryptu Python w środowisku venv i detekcja poprawnego startu ---
