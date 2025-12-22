@@ -1,12 +1,10 @@
 #!/bin/bash
-# 1.CLI_Instalacja_zależności.sh (v2.9 - Unknown PM & Gentoo Support)
+# 1.CLI_Instalacja_zależności.sh (v2.9.3 - Fix OpenMandriva Loop UX)
 #
-# ZMIANY v2.9:
-# - Zsynchronizowano logikę z wersją Zenity v1.9.
-# - Poprawiono obsługę terminali (flagi --wait, --disable-factory itp.).
-# - Dodano obsługę "Unknown PM" (instrukcja ręczna zamiast błędu).
-# - Dodano specjalny tryb dla Gentoo (wyświetlanie wymaganych flag USE).
-# - Pozwala pominąć sprawdzanie zależności w trybie nieznanego systemu.
+# ZMIANY v2.9.3:
+# - Dodano zmianę koloru i treści komunikatu w pętli OpenMandriva,
+#   jeśli repozytorium nadal jest wyłączone po pierwszej próbie.
+# - Zachowano poprawkę crasha om-repo-picker.
 
 # --- DETEKCJA I URUCHOMIENIE W TERMINALU (gdy kliknięty z GUI) ---
 if [ ! -t 0 ]
@@ -246,7 +244,7 @@ is_pkg_installed() {
         fi
     fi
 
-    # FIX: Pomijamy command -v dla python-ensurepip, żeby nie wykrywał "python" jako pakietu
+    # POPRAWKA: Specjalny przypadek dla python-ensurepip.
     if [[ "$pkg" != "python-ensurepip" ]]
     then
         if command -v "${pkg%%-*}" &>/dev/null
@@ -481,25 +479,120 @@ case "$DISTRO" in
     ;;
 
   openmandriva*)
-    # --- OSTRZEŻENIE OPENMANDRIVA (COOKER) ---
-    echo
-    echo -e "${C_RED}${C_BOLD}⚠️  OSTRZEŻENIE OpenMandriva Lx ⚠️${C_RESET}"
-    echo -e "${C_YELLOW}Obecne wersje pakietu 'conky' w stabilnych repozytoriach (Rome/Rock) są uszkodzone (brak obsługi Cairo/Lua).${C_RESET}"
-    echo -e "${C_YELLOW}Aby widget działał poprawnie, instalator spróbuje pobrać pakiet 'conky' z repozytorium eksperymentalnego COOKER.${C_RESET}"
-    echo
+    # Pobieramy nazwę kodową (np. 'rome' lub 'vanadium')
+    OM_CODENAME=$(lsb_release -cs 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    
+    # === WARIANT 1: OpenMandriva ROME (Rolling) ===
+    if [[ "$OM_CODENAME" == "rome" ]] || [[ "$OM_CODENAME" == "rolling" ]]; then
+        PM="dnf"
+        PREINSTALL_CMD="sudo dnf clean all; sudo dnf makecache"
+        REQUIRED_PACKAGES=(conky wget lua jq zenity-gtk fonts-ttf-noto-emoji python-ensurepip)
+        
+        # --- Sprawdzamy, czy conky jest już zainstalowany ---
+        if rpm -q conky &>/dev/null; then
+            INSTALL="sudo $PM install -y"
+        else
+            # Pakietu NIE MA - musimy upewnić się, że repozytorium 'extra' jest dostępne
+            REPO_ACTIVE=0
+            IS_RETRY=0
+            
+            while [ $REPO_ACTIVE -eq 0 ]; do
+                # Sprawdzenie czy repo jest włączone
+                if dnf repolist | grep -q "rolling-x86_64-extra"; then
+                    REPO_ACTIVE=1
+                    INSTALL="sudo $PM install -y"
+                    break
+                fi
+                
+                echo
+                if [ $IS_RETRY -eq 0 ]; then
+                    log_info "ℹ️  Wymagane repozytorium 'Extra' (rolling-x86_64-extra) jest wyłączone."
+                else
+                    echo -e "${C_RED}${C_BOLD}⛔  Wymagane repozytorium 'Extra' (rolling-x86_64-extra) jest NADAL wyłączone!${C_RESET}"
+                fi
+                
+                echo "Pakiet 'conky' znajduje się w tym repozytorium. Zaleca się jego włączenie."
+                
+                echo "Wybierz akcję:"
+                echo "  [O] - Otwórz Software Repository Selector (om-repo-picker)."
+                echo "  [T] - Instalacja tymczasowa (awaryjna, jednorazowe użycie repo)."
+                echo "  [S] - Sprawdź ponownie (jeśli włączyłeś repozytorium ręcznie)."
+                echo "  [A] - Anuluj."
+                
+                choice=$(prompt_choice "Twój wybór?" "O/T/S/A" "O")
+                
+                # Ustawiamy flagę RETRY na 1 dla kolejnych przebiegów
+                IS_RETRY=1
 
-    confirm_cooker=$(prompt_choice "Czy zgadzasz się na instalację pakietu z repozytorium Cooker?" "T/N" "N")
-    if [[ "${confirm_cooker^^}" != "T" ]]
-    then
-        log_error "Użytkownik nie wyraził zgody na instalację z repozytorium Cooker. Przerwano."
+                case "${choice^^}" in
+                    O)
+                        echo "Uruchamiam om-repo-picker..."
+                        # FIX: Wyłączamy trap na czas działania zewnętrznego GUI, bo może zwrócić błąd przy zamykaniu
+                        trap - ERR
+                        om-repo-picker
+                        trap 'log_error "Nieoczekiwany błąd w skrypcie w sekcji: $BASH_COMMAND"' ERR
+                        
+                        log_info "Odświeżam bazę pakietów..."
+                        sudo dnf makecache &>/dev/null
+                        ;;
+                    T)
+                        log_warn "Wybrano tryb instalacji tymczasowej."
+                        echo "Konfiguracja systemu nie zostanie zmieniona na stałe."
+                        INSTALL="sudo $PM install -y --enablerepo=rolling-x86_64-extra"
+                        REPO_ACTIVE=1
+                        break
+                        ;;
+                    S)
+                        log_info "Weryfikacja repozytoriów..."
+                        sudo dnf makecache &>/dev/null
+                        ;;
+                    A)
+                        log_error "Przerwano instalację (brak repozytorium Extra)."
+                        ;;
+                esac
+            done
+            
+             if [ -z "$INSTALL" ]; then
+                 INSTALL="sudo $PM install -y"
+            fi
+        fi
+
+    # === WARIANT 2: OpenMandriva ROCK (np. 6.0 Vanadium) ===
+    else
+        echo
+        echo -e "${C_RED}${C_BOLD}⚠️  OSTRZEŻENIE OpenMandriva Lx (Rock/Vanadium) ⚠️${C_RESET}"
+        echo -e "${C_YELLOW}Wykryto wersję stabilną. Aby widget działał poprawnie, instalator pobierze${C_RESET}"
+        echo -e "${C_YELLOW}nowszą wersję pakietu 'conky' (z obsługą Lua/Cairo) korzystając z repozytorium Rolling.${C_RESET}"
+        echo
+        
+        confirm_hybrid=$(prompt_choice "Czy zgadzasz się na tymczasowe pobranie pakietu z nowszego systemu?" "T/N" "T")
+        
+        if [[ "${confirm_hybrid^^}" != "T" ]]; then 
+             log_error "Użytkownik nie wyraził zgody na instalację z repo Rolling."
+        fi
+        
+        PM="dnf"
+        INSTALL="sudo $PM install -y"
+        
+        # Instalacja TYMCZASOWA z wykorzystaniem istniejących (ale wyłączonych) repozytoriów Rolling
+        PREINSTALL_CMD="if ! rpm -q conky &>/dev/null; then \
+            echo 'Instalacja conky z repozytorium Rolling (tryb tymczasowy)...'; \
+            sudo dnf install -y conky --enablerepo=rolling-x86_64,rolling-x86_64-extra; \
+        fi; \
+        sudo dnf makecache"
+        
+        REQUIRED_PACKAGES=(conky wget lua jq zenity-gtk fonts-ttf-noto-emoji python-ensurepip)
     fi
-    # ----------------------------------------
+    ;;
 
+  mageia*)
     PM="dnf"
-    INSTALL="sudo $PM install -y"
-    # TRIK: Instalacja conky z cooker, jeśli brakuje.
-    PREINSTALL_CMD="if ! rpm -q conky &>/dev/null; then echo 'Instalacja conky z repo cooker...'; sudo dnf install -y conky --enablerepo=cooker-x86_64,cooker-x86_64-extra; fi; sudo dnf makecache"
-    REQUIRED_PACKAGES=(conky wget lua jq zenity-gtk fonts-ttf-noto-emoji python-ensurepip)
+    if command -v sudo &>/dev/null; then
+        INSTALL="sudo dnf install -y"; PREINSTALL_CMD="sudo dnf makecache"
+    else
+        INSTALL="pkexec dnf install -y"; PREINSTALL_CMD="pkexec dnf makecache"
+    fi
+    REQUIRED_PACKAGES=(conky wget lua jq zenity google-noto-emoji-color-fonts)
     ;;
 
   arch*|manjaro*|garuda*|endeavouros|artix)
@@ -566,6 +659,20 @@ case "$DISTRO" in
       INSTALL="sudo $PM -S --noconfirm --needed"
       PREINSTALL_CMD="sudo pacman -Sy"
       REQUIRED_PACKAGES=(conky wget lua jq noto-fonts-emoji)
+    elif command -v zypper &>/dev/null
+    then
+      PM="zypper"
+      INSTALL="sudo $PM install -y"
+      PREINSTALL_CMD="sudo zypper refresh"
+      EMOJI_PKG="noto-coloremoji-fonts"
+      if ! zypper se -x "$EMOJI_PKG" | grep -q "$EMOJI_PKG"; then EMOJI_PKG="google-noto-coloremoji-fonts"; fi
+      REQUIRED_PACKAGES=(conky wget lua jq "$EMOJI_PKG")
+    elif command -v eopkg &>/dev/null
+    then
+      PM="eopkg"
+      INSTALL="sudo $PM install -y"
+      PREINSTALL_CMD="sudo eopkg update-repo"
+      REQUIRED_PACKAGES=(conky wget lua jq font-noto-emoji)
     else
       # --- UNKNOWN PM FALLBACK ---
       UNKNOWN_PM=1
@@ -740,6 +847,12 @@ AVAILABLE_LUAS=()
 if command -v lua5.4 &>/dev/null; then AVAILABLE_LUAS+=("5.4"); fi
 if command -v lua5.3 &>/dev/null; then AVAILABLE_LUAS+=("5.3"); fi
 if command -v luajit   &>/dev/null; then AVAILABLE_LUAS+=("luajit (5.1)"); fi
+if command -v lua &>/dev/null; then
+    _v=$(lua -v 2>&1 | grep -oE '5\.[0-9]' || true)
+    if [ -n "$_v" ] && [[ ! " ${AVAILABLE_LUAS[*]} " =~ " ${_v} " ]]; then
+        AVAILABLE_LUAS+=("$_v")
+    fi
+fi
 
 AV_STR="$(printf "%s, " "${AVAILABLE_LUAS[@]}")"
 AV_STR="${AV_STR%, }"
@@ -768,7 +881,11 @@ prompt_confirm
 
 # --- POBIERANIE dkjson.lua ---
 check_internet() {
-    ping -c1 -W2 raw.githubusercontent.com &>/dev/null
+    if command -v curl &>/dev/null; then
+        curl -I --connect-timeout 3 --max-time 5 https://raw.githubusercontent.com/ 1>/dev/null 2>&1
+    else
+        ping -c1 -W2 raw.githubusercontent.com &>/dev/null
+    fi
 }
 
 if [ ! -f "$DKJSON_LOCAL" ]
@@ -825,8 +942,9 @@ fi
 PY="$VENV_DIR/bin/python"
 
 log_info "Aktualizuję pip w venv..."
-if ! "$PY" -m pip install --upgrade pip -q --disable-pip-version-check
-then
+# Próba 1: standardowa aktualizacja pip
+if ! "$PY" -m pip install --upgrade pip -q --disable-pip-version-check >/dev/null 2>&1; then
+    # Próba 2: doinstaluj pip przez ensurepip (czasem na Debianie/MX pip w venv nie jest wgrany)
     "$PY" -m ensurepip --upgrade >/dev/null 2>&1 || true
     "$PY" -m pip install --upgrade pip -q --disable-pip-version-check || log_error "Błąd przy aktualizacji pip!"
 fi

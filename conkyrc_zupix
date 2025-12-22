@@ -61,8 +61,8 @@ conky.config = {
     color4                  = '#bd93f9',            -- ${color4} – fioletowy (np. nagłówki).
 
     -- WYMIARY I POZYCJONOWANIE
-    minimum_width           = 750,                  -- Minimalna szerokość okna (w pikselach).
-    minimum_height          = 510,                  -- Minimalna wysokość okna (w pikselach).
+    minimum_width           = 800,                  -- Minimalna szerokość okna (w pikselach).
+    minimum_height          = 505,                  -- Minimalna wysokość okna (w pikselach).
     alignment               = 'bottom_right',
 
     gap_x                   = 5,                   -- Odstęp od lewej/prawej krawędzi ekranu (w pikselach).

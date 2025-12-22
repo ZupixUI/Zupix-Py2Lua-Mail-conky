@@ -50,6 +50,36 @@ local PULSE_DURATION = 6.0
 -- Szybkość pulsowania (ile razy mignie w czasie trwania). Wyższa wartość = szybsze miganie.
 local PULSE_SPEED = 3.0
 
+-- ————————————————————————— NOWOŚĆ: USTAWIENIA AVATARÓW ———————————————————————————————
+-- Włącz (true) lub wyłącz (false) wyświetlanie avatarów
+local ENABLE_AVATARS = true
+
+-- Jeśli true, miejsce na avatar jest rezerwowane zawsze, nawet jeśli dany mail go nie posiada
+-- (dzięki temu tekst jest zawsze równo wcięty). Jeśli false - tekst przesunie się w lewo, gdy brak avatara.
+local AVATAR_RESERVE_SPACE_ALWAYS = true
+
+-- Kształt avatara: "circle" (koło), "rounded" (zaokrąglony kwadrat), "square" (kwadrat)
+local AVATAR_SHAPE = "rounded" 
+
+-- Rozmiar bazowy avatara (w pikselach, przed skalowaniem)
+local AVATAR_SIZE_BASE_4K = 24   -- Rozmiar dla 4K
+local AVATAR_SIZE_BASE_FHD = 19  -- Rozmiar dla FullHD
+
+-- Przesunięcie pionowe avatara (żeby idealnie wyśrodkować go względem tekstu)
+local AVATAR_Y_OFFSET_4K = 14    -- Przesunięcie w dół dla 4K (twoja obecna wartość)
+local AVATAR_Y_OFFSET_FHD = 11   -- Przesunięcie w dół dla FullHD (dostosuj tę liczbę)
+
+-- Margines między avatarem a tekstem (nazwą konta)
+local AVATAR_PADDING_BASE = 6
+
+-- Plik mapujący adresy e-mail na ścieżki do plików graficznych
+local AVATAR_MAP_FILE = project_dir .. "config/avatar_map.json"
+
+-- Domyślny avatar (używany, gdy ENABLE_AVATARS=true, ale mail nie ma przypisanego obrazka w pliku mapowania)
+-- Jeśli zostawisz nil lub pusty string, a AVATAR_RESERVE_SPACE_ALWAYS=true, będzie po prostu puste miejsce.
+-- Domyślny avatar jest teraz pobierany z pliku avatar_map.json (klucz: "default")
+local DEFAULT_AVATAR_IMAGE = nil
+
 
 --———————————————————————————————— KONFIGURACJA TŁA GŁÓWNEGO ————————————————————————————————
 -- Włącz (true) lub wyłącz (false) tło dla całego okna conky
@@ -158,6 +188,10 @@ local TRIM_CACHE = {}
 -- Cache dla szerokości tekstów (żeby nie mierzyć ich w każdej klatce)
 local WIDTH_CACHE = {}
 
+-- Cache dla mapy avatarów
+local cached_avatar_map = nil
+local last_avatar_map_mtime = 0
+
 --———————————— Funkcja pomocnicza do skalowania widgetu ————————————
 local function s(value)
     return value * SCALE
@@ -166,7 +200,10 @@ end
 --————————————  BLOK DEFINICJI WYMIARÓW I POŁOŻENIA——————————————————————————————————————————————————————————————————————————————————————————————————
     local is_fullhd = (MAILS_DIRECTION == "up_fullhd" or MAILS_DIRECTION == "down_fullhd" or MAILS_DIRECTION == "up_left_fullhd" or MAILS_DIRECTION == "down_left_fullhd" or MAILS_DIRECTION == "up_right_fullhd" or MAILS_DIRECTION == "down_right_fullhd")
     
-    local MAILS_WIDTH_BASE, ENVELOPE_SIZE_BASE, BADGE_RADIUS_BASE, ATTACHMENT_ICON_SIZE_BASE,
+    -- === NAPRAWA BŁĘDU "too many local variables" ===
+    -- Poniższe zmienne nie mają już przedrostka "local", aby nie zajmować limitu 200 zmiennych lokalnych Lua.
+    -- Dzięki temu są one globalne w obrębie tego pliku.
+    MAILS_WIDTH_BASE, ENVELOPE_SIZE_BASE, BADGE_RADIUS_BASE, ATTACHMENT_ICON_SIZE_BASE,
           ATTACHMENT_ICON_OFFSET_DX_BASE, ATTACHMENT_ICON_OFFSET_DY_BASE, FROM_FONT_SIZE_BASE,
           SUBJECT_FONT_SIZE_BASE, PREVIEW_FONT_SIZE_BASE, HEADER_SIZE_BASE, HEADER_LINE_WIDTH_BASE,
           HEADER_LINE_LENGTH_BASE, MAIL_LINE_HEIGHT_PREVIEW_BASE, MAIL_LINE_HEIGHT_NO_PREVIEW_BASE,
@@ -176,16 +213,16 @@ end
           PREVIEW_COLOR_TYPE, PREVIEW_COLOR_CUSTOM, BADGE_COLOR_TYPE, BADGE_COLOR_CUSTOM,
           BADGE_TEXT_COLOR_TYPE, BADGE_TEXT_COLOR_CUSTOM, BADGE_BORDER_COLOR_TYPE, BADGE_BORDER_COLOR_CUSTOM,
           HEADER_COLOR, HEADER_LINE_COLOR, MAIL_BG_COLOR, MAIL_BG_ALPHA,
-          FROM_FONT_NAME, SUBJECT_FONT_NAME, PREVIEW_FONT_NAME, HEADER_FONT,
+          FROM_FONT_NAME, SUBJECT_FONT_NAME, SYMBOL_FONT_NAME, PREVIEW_FONT_NAME, HEADER_FONT,
           FROM_FONT_BOLD, SUBJECT_FONT_BOLD, PREVIEW_FONT_BOLD, HEADER_BOLD,
-		  PREVIEW_VERTICAL_SPACING_BASE, MAIL_BG_HEIGHT_PREVIEW_BASE, MAIL_BG_HEIGHT_NO_PREVIEW_BASE,
-		  MAIL_BG_VERTICAL_OFFSET_BASE, BADGE_BORDER_WIDTH_BASE, BADGE_FONT_SIZE_OFFSET_BASE,
-		  HEADER_SEPARATOR_EXTRA_LENGTH_BASE, HEADER_SEPARATOR_MARGIN_BASE, ERROR_VERTICAL_OFFSET_BASE,
-		  ERROR_FONT_SIZE_OFFSET_BASE
+          PREVIEW_VERTICAL_SPACING_BASE, MAIL_BG_HEIGHT_PREVIEW_BASE, MAIL_BG_HEIGHT_NO_PREVIEW_BASE,
+          MAIL_BG_VERTICAL_OFFSET_BASE, BADGE_BORDER_WIDTH_BASE, BADGE_FONT_SIZE_OFFSET_BASE,
+          HEADER_SEPARATOR_EXTRA_LENGTH_BASE, HEADER_SEPARATOR_MARGIN_BASE, ERROR_VERTICAL_OFFSET_BASE,
+          ERROR_FONT_SIZE_OFFSET_BASE = nil
 
 -- ————————————Wymiary dla layoutów FullHD———————————————————
     if is_fullhd then
-        MAILS_WIDTH_BASE                = 450      -- Szerokość całego bloku z listą maili
+        MAILS_WIDTH_BASE                = 650      -- Szerokość całego bloku z listą maili
         ENVELOPE_SIZE_BASE              = 56       -- Rozmiar (szerokość i wysokość) ikony koperty
         BADGE_RADIUS_BASE               = 9        -- Podstawowy promień licznika nieprzeczytanych maili
         ATTACHMENT_ICON_SIZE_BASE       = 14       -- Rozmiar ikony załącznika (spinacza)
@@ -204,19 +241,19 @@ end
         MAIL_BG_PADDING_BOTTOM_BASE     = 2        -- Wewnętrzny margines tła "mleko" od dołu
         MAIL_BG_RADIUS_BASE             = 8        -- Promień zaokrąglenia rogów tła "mleko"
         MAX_MAIL_LINE_PIXELS_BASE       = 450      -- Maksymalna szerokość w pikselach dla tekstu (używane do przycinania)
-        PREVIEW_EXTRA_SPACE_BASE        = -2       -- Dodatkowa przestrzeń/korekta dla przewijanego podglądu
+        PREVIEW_EXTRA_SPACE_BASE        = -8       -- Dodatkowa przestrzeń/korekta dla przewijanego podglądu
         PREVIEW_VERTICAL_SPACING_BASE   = -1       -- Odstęp pionowy między linią nadawcy/tematu a linią podglądu
         MAIL_BG_HEIGHT_PREVIEW_BASE     = 24       -- Wysokość tła "mleko" dla wiersza z podglądem
         MAIL_BG_HEIGHT_NO_PREVIEW_BASE  = 18       -- Wysokość tła "mleko" dla wiersza bez podglądu
-		MAIL_BG_VERTICAL_OFFSET_BASE    = 12       -- Przesunięcie pionowe tła "mleko" względem tekstu maila
-		BADGE_BORDER_WIDTH_BASE         = 1.6      -- Grubość ramki wokół licznika nieprzeczytanych maili
-		BADGE_FONT_SIZE_OFFSET_BASE     = 1        -- Korekta rozmiaru czcionki dla liczby wewnątrz licznika
-		HEADER_SEPARATOR_EXTRA_LENGTH_BASE = 6     -- Dodatkowa długość dla linii separatora w nagłówku
-		HEADER_SEPARATOR_MARGIN_BASE    = 3        -- Margines między tekstem nagłówka a linią separatora
-		ERROR_FONT_SIZE_OFFSET_BASE     = 0        -- Korekta rozmiaru czcionki dla komunikatu o błędzie logowania
+        MAIL_BG_VERTICAL_OFFSET_BASE    = 12       -- Przesunięcie pionowe tła "mleko" względem tekstu maila
+        BADGE_BORDER_WIDTH_BASE         = 1.6      -- Grubość ramki wokół licznika nieprzeczytanych maili
+        BADGE_FONT_SIZE_OFFSET_BASE     = 1        -- Korekta rozmiaru czcionki dla liczby wewnątrz licznika
+        HEADER_SEPARATOR_EXTRA_LENGTH_BASE = 6     -- Dodatkowa długość dla linii separatora w nagłówku
+        HEADER_SEPARATOR_MARGIN_BASE    = 3        -- Margines między tekstem nagłówka a linią separatora
+        ERROR_FONT_SIZE_OFFSET_BASE     = 0        -- Korekta rozmiaru czcionki dla komunikatu o błędzie logowania
     else
 -- ————————————Wymiary dla layoutów 4K———————————————————
-        MAILS_WIDTH_BASE                = 600      -- Szerokość całego bloku z listą maili
+        MAILS_WIDTH_BASE                = 650      -- Szerokość całego bloku z listą maili
         ENVELOPE_SIZE_BASE              = 74       -- Rozmiar (szerokość i wysokość) ikony koperty
         BADGE_RADIUS_BASE               = 12       -- Podstawowy promień licznika nieprzeczytanych maili
         ATTACHMENT_ICON_SIZE_BASE       = 18       -- Rozmiar ikony załącznika (spinacza)
@@ -235,16 +272,16 @@ end
         MAIL_BG_PADDING_BOTTOM_BASE     = 2        -- Wewnętrzny margines tła "mleko" od dołu
         MAIL_BG_RADIUS_BASE             = 11       -- Promień zaokrąglenia rogów tła "mleko"
         MAX_MAIL_LINE_PIXELS_BASE       = 600      -- Maksymalna szerokość w pikselach dla tekstu (używane do przycinania)
-        PREVIEW_EXTRA_SPACE_BASE        = -3       -- Dodatkowa przestrzeń/korekta dla przewijanego podglądu
+        PREVIEW_EXTRA_SPACE_BASE        = -8       -- Dodatkowa przestrzeń/korekta dla przewijanego podglądu
         PREVIEW_VERTICAL_SPACING_BASE   = 2        -- Odstęp pionowy między linią nadawcy/tematu a linią podglądu
         MAIL_BG_HEIGHT_PREVIEW_BASE     = 32       -- Wysokość tła "mleko" dla wiersza z podglądem
         MAIL_BG_HEIGHT_NO_PREVIEW_BASE  = 24       -- Wysokość tła "mleko" dla wiersza bez podglądu
-		MAIL_BG_VERTICAL_OFFSET_BASE    = 16       -- Przesunięcie pionowe tła "mleko" względem tekstu maila
-		BADGE_BORDER_WIDTH_BASE         = 2.2      -- Grubość ramki wokół licznika nieprzeczytanych maili
+        MAIL_BG_VERTICAL_OFFSET_BASE    = 16       -- Przesunięcie pionowe tła "mleko" względem tekstu maila
+        BADGE_BORDER_WIDTH_BASE         = 2.2      -- Grubość ramki wokół licznika nieprzeczytanych maili
         BADGE_FONT_SIZE_OFFSET_BASE     = 3        -- Korekta rozmiaru czcionki dla liczby wewnątrz licznika
         HEADER_SEPARATOR_EXTRA_LENGTH_BASE = 10   -- Dodatkowa długość dla linii separatora w nagłówku
-	 	HEADER_SEPARATOR_MARGIN_BASE    = 12       -- Margines między tekstem nagłówka a linią separatora
-		ERROR_FONT_SIZE_OFFSET_BASE     = 2        -- Korekta rozmiaru czcionki dla komunikatu o błędzie logowania
+        HEADER_SEPARATOR_MARGIN_BASE    = 12       -- Margines między tekstem nagłówka a linią separatora
+        ERROR_FONT_SIZE_OFFSET_BASE     = 2        -- Korekta rozmiaru czcionki dla komunikatu o błędzie logowania
     end
 
 -- ————————————Wspólne ustawienia czcionek i kolorów———————————————————
@@ -261,6 +298,7 @@ end
 
     -- --- Ustawienia czcionki i koloru dla TEMATU ---
     SUBJECT_FONT_NAME       = "Arial"
+    SYMBOL_FONT_NAME        = "DejaVu Sans"
     SUBJECT_FONT_BOLD       = true
     SUBJECT_COLOR_TYPE      = "white"
     SUBJECT_COLOR_CUSTOM    = {0.424, 1, 0}
@@ -312,6 +350,13 @@ end
     local PREVIEW_EXTRA_SPACE   = s(PREVIEW_EXTRA_SPACE_BASE)
     local preview_scroll_speed  = PREVIEW_SCROLL_SPEED_MULTIPLIER * SCALE
 
+-- ZMODYFIKOWANE: Skalowanie avatarów i ich pozycji (Rozmiar + Offset Y)
+    local current_avatar_base = is_fullhd and AVATAR_SIZE_BASE_FHD or AVATAR_SIZE_BASE_4K
+    local current_offset_y_base = is_fullhd and AVATAR_Y_OFFSET_FHD or AVATAR_Y_OFFSET_4K
+    
+    local AVATAR_SIZE = s(current_avatar_base)
+    local AVATAR_PADDING = s(AVATAR_PADDING_BASE)
+    local AVATAR_Y_OFFSET = s(current_offset_y_base)
 
 -- ——————————————————————————————— Centralna tabela konfiguracji położenia błędów sieci/kont ———————————————————————————————
 local LAYOUT_SPECIFIC_CONFIGS = {
@@ -569,6 +614,40 @@ local function extract_sender_name(from)
     end
 end
 
+-- ———————— NOWOŚĆ: Funkcja wyciągająca czysty email (do mapowania avatara) ————————
+local function extract_email_address(from_string)
+    if not from_string then return "" end
+    -- Próba wyjęcia z nawiasów <email@domena.com>
+    local email = from_string:match("<([^>]+)>")
+    if email then return email end
+    -- Jeśli brak nawiasów, zakładamy że to sam email, chyba że to nazwa
+    if from_string:find("@") then return from_string end
+    return ""
+end
+
+-- ———————— NOWOŚĆ: Ładowanie mapy avatarów ————————
+local function load_avatar_map()
+    local current_mtime = get_file_mtime(AVATAR_MAP_FILE)
+    if current_mtime > 0 and current_mtime == last_avatar_map_mtime and cached_avatar_map ~= nil then
+        return cached_avatar_map
+    end
+    
+    local map = {}
+    local ok, f = pcall(io.open, AVATAR_MAP_FILE, "r")
+    if ok and f then
+        local content = f:read("*a")
+        f:close()
+        local data = json.decode(content)
+        if type(data) == "table" then
+            map = data
+        end
+    end
+    
+    cached_avatar_map = map
+    last_avatar_map_mtime = current_mtime
+    return map
+end
+
 -- ———————— Funkcja tłumaczenia "kodu HTML" na czytelny tekst ————————
 local function decode_html_entities(text)
     text = text:gsub("&amp;", "&")
@@ -822,6 +901,53 @@ local function draw_png_rotated_safe(cr, x, y, w, h, path, angle_deg, label)
     cairo_restore(cr)
 end
 
+-- ———————— NOWOŚĆ: Funkcja do rysowania avatara z przycinaniem (Circle/Rounded) ————————
+local function draw_avatar_rounded(cr, x, y, size, path)
+    -- Bezpieczne ładowanie (korzystamy z cache'u PNG, tak jak wyżej)
+    local image = png_surface_cache[path]
+    if image == nil or image == false then
+        local file = io.open(path, "rb")
+        if file then
+            file:close()
+            local ok, loaded_image = pcall(cairo_image_surface_create_from_png, path)
+            if ok and loaded_image and cairo_image_surface_get_width(loaded_image) > 0 then
+                if image and type(image) == "userdata" then cairo_surface_destroy(image) end
+                png_surface_cache[path] = loaded_image
+                image = loaded_image
+            else
+                if loaded_image and type(loaded_image) == "userdata" then cairo_surface_destroy(loaded_image) end
+                png_surface_cache[path] = false
+                image = false
+            end
+        else png_surface_cache[path] = false; image = false end
+    end
+    
+    if not image or image == false then return end -- Po prostu nie rysuj jeśli brak pliku
+    
+    local img_w = cairo_image_surface_get_width(image)
+    local img_h = cairo_image_surface_get_height(image)
+    
+    cairo_save(cr)
+    
+    -- Tworzenie ścieżki przycinania (Clip Path)
+    if AVATAR_SHAPE == "circle" then
+        cairo_arc(cr, x + size/2, y + size/2, size/2, 0, 2*math.pi)
+    elseif AVATAR_SHAPE == "rounded" then
+        draw_rounded_rect(cr, x, y, size, size, size/4) -- 25% zaokrąglenia
+    else
+        cairo_rectangle(cr, x, y, size, size)
+    end
+    cairo_clip(cr)
+    
+    -- Skalowanie i rysowanie
+    cairo_translate(cr, x, y)
+    cairo_scale(cr, size / img_w, size / img_h)
+    cairo_set_source_surface(cr, image, 0, 0)
+    cairo_paint(cr)
+    
+    cairo_restore(cr)
+end
+
 
 -- ———————— Funkcje: utf8_sub(s, i, j) oraz utf8_len(s) ————————
 local function utf8_sub(s, i, j)
@@ -905,108 +1031,65 @@ local function get_cached_width(cr, text, font_name, font_size, font_bold)
     return w
 end
 
--- ———————— Funkcja-parser: Obsługa Emoji (Z filtrowaniem nieobsługiwanych kolorów) ————————
+-- ———————— Funkcja-parser: Wersja WYDAJNA (Grupowanie symboli, spacje jako tekst) ————————
 local function split_emoji(text)
-    -- FIX DLA CAIRO: Usuwamy modyfikatory koloru skóry (Fitzpatrick type 1-6).
-    -- Kody: F0 9F 8F [BB-BF]. W Lua (decimal): \240\159\143[\187-\191].
-    -- Dzięki temu zamiast "Ręka + Kwadrat" zobaczymy czystą "Żółtą Rękę".
-    local clean_text = text:gsub("\240\159\143[\187-\191]", "")
-
+    local clean_text = text:gsub("\240\159\143[\187-\191]", "") -- Usuwanie modyfikatorów skóry
     local res = {}
     local i = 1
     local len = #clean_text
     
     while i <= len do
         local b1 = clean_text:byte(i)
-        local char_len = 1
+        
+        -- DEFINICJE KATEGORII:
+        local is_color_emoji = (b1 >= 0xF0)
+        local is_symbol      = (b1 >= 0xE0 and b1 < 0xF0)
 
-        -- 1. Ustalanie długości bieżącego znaku
-        if b1 < 0x80 then char_len = 1
-        elseif b1 < 0xE0 then char_len = 2
-        elseif b1 < 0xF0 then char_len = 3
-        else char_len = 4 end
-
-        -- 2. Czy to początek potencjalnej emotki?
-        local is_emoji_start = (b1 >= 0xF0) or (b1 == 0xE2 and clean_text:byte(i+1) >= 0x90)
-
-        if is_emoji_start then
-            local current_chunk_len = char_len
-            
-            -- Pętla Zjadacza (uproszczona, bo kolory już wycięliśmy, ale zostawiamy dla ZWJ i VS16)
-            while (i + current_chunk_len) <= len do
-                local next_pos = i + current_chunk_len
-                local n1 = clean_text:byte(next_pos)
-                
-                local next_char_len = 1
-                if n1 < 0x80 then next_char_len = 1
-                elseif n1 < 0xE0 then next_char_len = 2
-                elseif n1 < 0xF0 then next_char_len = 3
-                else next_char_len = 4 end
-
-                local matched = false
-
-                -- A. Znak Wariacji VS16 (Styl graficzny: EF B8 8F)
-                if n1 == 0xEF and next_char_len == 3 then
-                    if next_pos + 2 <= len then
-                        local n2, n3 = clean_text:byte(next_pos+1), clean_text:byte(next_pos+2)
-                        if n2 == 0xB8 and n3 == 0x8F then
-                            matched = true
-                            current_chunk_len = current_chunk_len + 3
-                        end
-                    end
-                end
-
-                -- B. Łącznik ZWJ (Zero Width Joiner: E2 80 8D)
-                if not matched and n1 == 0xE2 and next_char_len == 3 then
-                    if next_pos + 2 <= len then
-                        local n2, n3 = clean_text:byte(next_pos+1), clean_text:byte(next_pos+2)
-                        if n2 == 0x80 and n3 == 0x8D then
-                            local zwj_len = 3
-                            local target_pos = next_pos + zwj_len
-                            
-                            if target_pos <= len then
-                                local t1 = clean_text:byte(target_pos)
-                                local target_len = 1
-                                if t1 < 0x80 then target_len = 1
-                                elseif t1 < 0xE0 then target_len = 2
-                                elseif t1 < 0xF0 then target_len = 3
-                                else target_len = 4 end
-                                
-                                current_chunk_len = current_chunk_len + zwj_len + target_len
-                                matched = true
-                            end
-                        end
-                    end
-                end
-
-                if not matched then break end
+        if is_color_emoji then
+            -- --- EMOJI (4 bajty) ---
+            local current_chunk = ""
+            local char_len = 4
+            if i + char_len - 1 <= len then current_chunk = clean_text:sub(i, i + char_len - 1) end
+            i = i + char_len
+            -- Sklejanie ZWJ/VS16
+            while i <= len do
+                local nb = clean_text:byte(i)
+                if nb == 0xE2 or nb == 0xEF then
+                     local n_len = (nb < 0xE0) and 2 or ((nb < 0xF0) and 3 or 4)
+                     if i + n_len - 1 <= len then current_chunk = current_chunk .. clean_text:sub(i, i + n_len - 1) end
+                     i = i + n_len
+                else break end
             end
+            table.insert(res, {type="emoji", txt=current_chunk})
 
-            table.insert(res, {emoji=true, txt=clean_text:sub(i, i + current_chunk_len - 1)})
-            i = i + current_chunk_len
+        elseif is_symbol then
+            -- --- SYMBOLE (3 bajty, grupowane dla wydajności) ---
+            local start = i
+            while i <= len do
+                local nb = clean_text:byte(i)
+                -- Sprawdzamy czy kolejny znak to też symbol (zakres E0-EF)
+                if nb >= 0xE0 and nb < 0xF0 then
+                    if i + 2 <= len then i = i + 3 else i = len + 1 break end
+                else
+                    break
+                end
+            end
+            table.insert(res, {type="symbol", txt=clean_text:sub(start, i - 1)})
+
         else
-            -- Zwykły tekst
-            local j = i
-            while j <= len do
-                local next_b1 = clean_text:byte(j)
-                local is_next_emoji = (next_b1 >= 0xF0) or (next_b1 == 0xE2 and clean_text:byte(j+1) >= 0x90)
+            -- --- TEKST (ASCII + PL + Spacje) ---
+            -- Traktujemy spacje jako część tekstu, co drastycznie zmniejsza liczbę wywołań Cairo
+            local start = i
+            while i <= len do
+                local nb = clean_text:byte(i)
+                -- Przerywamy TYLKO jeśli trafimy na Symbol (E0+) lub Emoji (F0+)
+                if nb >= 0xE0 then break end
                 
-                if is_next_emoji then break end
-                
-                local next_len = 1
-                if next_b1 < 0x80 then next_len = 1
-                elseif next_b1 < 0xE0 then next_len = 2
-                elseif next_b1 < 0xF0 then next_len = 3
-                else next_len = 4 end
-                
-                j = j + next_len
+                local n_len = (nb < 0x80) and 1 or 2 
+                i = i + n_len
             end
-            
-            if j > i then
-                table.insert(res, {emoji=false, txt=clean_text:sub(i, j-1)})
-                i = j
-            else
-                i = i + 1
+            if i > start then
+                table.insert(res, {type="text", txt=clean_text:sub(start, i - 1)})
             end
         end
     end
@@ -1017,8 +1100,10 @@ end
 local function get_chunks_width(cr, chunks, font_name, font_size, font_bold)
     local width = 0
     for _, chunk in ipairs(chunks) do
-        if chunk.emoji then
+        if chunk.type == "emoji" then
             cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, font_bold and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+        elseif chunk.type == "symbol" then
+            cairo_select_font_face(cr, SYMBOL_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, font_bold and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
         else
             cairo_select_font_face(cr, font_name, CAIRO_FONT_SLANT_NORMAL, font_bold and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
         end
@@ -1030,23 +1115,99 @@ local function get_chunks_width(cr, chunks, font_name, font_size, font_bold)
 end
 
 
--- ———————— Funkcja skracania tekstu z obsługą Emoji (Z CACHE - ZERO CPU) ————————
+-- ———————— Funkcja skracania tekstu: Wersja WYDAJNA ————————
 local function trim_line_to_width_emoji(cr, text, max_width, font_name, font_size, font_bold)
-    local cache_key = "EMOJI_" .. text .. "|" .. max_width .. "|" .. tostring(font_bold) .. "|" .. font_size
+    local cache_key = "HYBRID_V3_PERF_" .. text .. "|" .. max_width .. "|" .. tostring(font_bold) .. "|" .. font_size
     if TRIM_CACHE[cache_key] then return TRIM_CACHE[cache_key] end
 
-    if font_bold then
-        cairo_select_font_face(cr, font_name, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD)
-    else
-        cairo_select_font_face(cr, font_name, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL)
-    end
-    cairo_set_font_size(cr, font_size)
-
-    local trimmed_string = trim_line_to_width(cr, text, max_width)
-    local result = split_emoji(trimmed_string)
+    local chunks = split_emoji(text)
     
-    TRIM_CACHE[cache_key] = result
-    return result
+    local function set_chunk_font(chunk)
+        if chunk.type == "emoji" then
+            cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, font_bold and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+        elseif chunk.type == "symbol" then
+            cairo_select_font_face(cr, SYMBOL_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, font_bold and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+        else
+            cairo_select_font_face(cr, font_name, CAIRO_FONT_SLANT_NORMAL, font_bold and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+        end
+        cairo_set_font_size(cr, font_size)
+    end
+
+    -- Obliczanie szerokości całości (szybki test czy w ogóle trzeba ciąć)
+    local total_width = 0
+    for _, chunk in ipairs(chunks) do
+        set_chunk_font(chunk)
+        cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS)
+        total_width = total_width + GLOBAL_TEXT_EXTENTS.x_advance
+    end
+
+    if total_width <= max_width then
+        TRIM_CACHE[cache_key] = chunks
+        return chunks
+    end
+
+    -- Przycinanie
+    set_font(cr, font_name, font_size, font_bold)
+    local ellipsis = "..."
+    cairo_text_extents(cr, ellipsis, GLOBAL_TEXT_EXTENTS)
+    local ellipsis_w = GLOBAL_TEXT_EXTENTS.x_advance
+    -- Rezerwujemy miejsce na kropki (bezpieczna metoda)
+    local target_width = math.max(0, max_width - ellipsis_w)
+
+    local current_w = 0
+    local new_chunks = {}
+    
+    for _, chunk in ipairs(chunks) do
+        set_chunk_font(chunk)
+        cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS)
+        local cw = GLOBAL_TEXT_EXTENTS.x_advance
+        
+        if current_w + cw <= target_width then
+            table.insert(new_chunks, chunk)
+            current_w = current_w + cw
+        else
+            local remaining = target_width - current_w
+            
+            if chunk.type == "text" then 
+                -- Tniemy tekst (Binary search - bardzo szybki)
+                local sub = chunk.txt
+                local low, high = 0, utf8_len(sub)
+                local best_idx = 0
+                while low <= high do
+                    local mid = math.floor((low+high)/2)
+                    local str_sub = utf8_sub(sub, 1, mid)
+                    cairo_text_extents(cr, str_sub, GLOBAL_TEXT_EXTENTS)
+                    if GLOBAL_TEXT_EXTENTS.x_advance <= remaining then best_idx = mid; low = mid + 1 else high = mid - 1 end
+                end
+                if best_idx > 0 then
+                    table.insert(new_chunks, {type="text", txt=utf8_sub(sub, 1, best_idx)})
+                end
+            
+            elseif chunk.type == "symbol" then
+                -- Tniemy symbole (Iteracja co 3 bajty)
+                local sub = chunk.txt
+                for k = #sub, 3, -3 do
+                    local try_sub = sub:sub(1, k)
+                    cairo_text_extents(cr, try_sub, GLOBAL_TEXT_EXTENTS)
+                    if GLOBAL_TEXT_EXTENTS.x_advance <= remaining then
+                        table.insert(new_chunks, {type="symbol", txt=try_sub})
+                        break
+                    end
+                end
+            end
+            
+            -- Doklej kropki
+            local last = new_chunks[#new_chunks]
+            if last and last.type == "text" then 
+                last.txt = last.txt .. ellipsis
+            else 
+                table.insert(new_chunks, {type="text", txt=ellipsis}) 
+            end
+            break
+        end
+    end
+    TRIM_CACHE[cache_key] = new_chunks
+    return new_chunks
 end
 
 -- ———————— Funkcja: Wczytuje ID maili z pliku stanu ————————
@@ -1104,6 +1265,7 @@ function conky_draw_mail_indicator()
     local MAX_MAILS = get_max_mails_from_file()
     local error_msgs = read_error_messages()
     local unread, mails, all_total, unread_cache_total = fetch_mails_from_python()
+    local avatar_map = load_avatar_map() -- ZMODYFIKOWANE: Ładowanie mapy avatarów
 
 -- =================== POCZĄTEK KODU "PANCERNEGO" (FIX OSTATECZNY) ===================
     if SORT_BY_DATE_GLOBALLY and selected_account_idx == 0 then
@@ -1171,9 +1333,13 @@ function conky_draw_mail_indicator()
 	       ids_have_changed = true -- (Dajemy znać, że lista ID się zmieniła)
         end
         
+        -- ZMODYFIKOWANE: Wyciągnięcie adresu email dla avatara
+        local from_email = extract_email_address(mail.from_address or mail.from)
+        
         table.insert(last_good_mails, {
             id = mail_id, -- Dodajemy ID do danych maila
             from = from,
+            from_email = from_email, -- Zapamiętujemy czysty email
             subject = mail.subject or "(brak tematu)",
             preview = mail.preview or "(brak podglądu)",
             has_attachment = mail.has_attachment,
@@ -1341,8 +1507,8 @@ if MAILS_DIRECTION == "up_4k" then
         local layout_offset_y = s(-5)  -- Zwiększ, aby przesunąć w dół
 
         local layout_extra_x = s(55)
-        local extra_block_down = s(32)
-        local extra_header_up = s(-16)
+        local extra_block_down = s(40)
+        local extra_header_up = s(-23)
         local extra_koperta_up = s(-40)
         local koperta_extra_left = s(-14)
         mails_x = (conky_window.width - MAILS_WIDTH) / 2 + layout_extra_x + layout_offset_x
@@ -1825,15 +1991,57 @@ if ENABLE_NEW_MAIL_PULSE then
         
 		-- ———————— Rozdzielenie logiki rysowania dla układu standardowego i odwróconego ————————
         local right_layout = (MAILS_DIRECTION == "up_right_4k" or MAILS_DIRECTION == "up_right_fullhd" or MAILS_DIRECTION == "down_right_4k" or MAILS_DIRECTION == "down_right_fullhd") and RIGHT_LAYOUT_REVERSED
+        
+        -- ———————— NOWOŚĆ: Obliczenia pod Avatara ————————
+        local avatar_offset_px = 0
+        local avatar_path = nil
+        
+		if ENABLE_AVATARS then
+            -- 1. Szukamy avatara dla konkretnego maila
+            local mapped_avatar = avatar_map[mail.from_email]
+            
+            -- 2. Jeśli nie ma, szukamy avatara domyślnego w mapie
+            if not mapped_avatar then
+                mapped_avatar = avatar_map["default"]
+            end
+
+            -- 3. Jeśli cokolwiek znaleziono, przetwarzamy ścieżkę
+            if mapped_avatar and mapped_avatar ~= "" then
+                 -- Jeśli ścieżka nie zaczyna się od /, dodajemy project_dir (ścieżka relatywna)
+                 if mapped_avatar:sub(1,1) ~= "/" then
+                    mapped_avatar = project_dir .. mapped_avatar
+                 end
+                 avatar_path = mapped_avatar
+            end
+            
+            -- Decyzja o przesunięciu:
+            -- Jeśli mamy avatar LUB wymuszamy miejsce zawsze -> przesuwamy
+            if avatar_path or AVATAR_RESERVE_SPACE_ALWAYS then
+                avatar_offset_px = AVATAR_SIZE + AVATAR_PADDING
+            end
+        end
+
         if right_layout then
 
-			-- ———————— BLOK A: Rysowanie dla układu ODWRÓCONEGO (od prawej do lewej) ————————
+            -- ———————— BLOK A: Rysowanie dla układu ODWRÓCONEGO (od prawej do lewej) ————————
+            local base_right_x = mails_x + MAILS_WIDTH
+            
+            -- ZMODYFIKOWANE: Rysowanie avatara przy prawej krawędzi
+            if avatar_path then
+                 local av_x = base_right_x - AVATAR_SIZE
+                 -- Korekta pionowa, żeby środek pasował do tekstu (s(3) to przykładowa korekta wizualna)
+				 local av_y = mail_y - AVATAR_SIZE + AVATAR_Y_OFFSET
+                 draw_avatar_rounded(cr, av_x, av_y, AVATAR_SIZE, avatar_path)
+            end
+            
+            -- Przesunięcie kursora w lewo o szerokość avatara
+            base_right_x = base_right_x - avatar_offset_px
+
             local account_label = mail.account and ("[" .. mail.account .. "] ") or ""
             
             -- OPTYMALIZACJA: Pobieramy szerokość z cache
             local acc_width = get_cached_width(cr, account_label, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
             
-            local base_right_x = mails_x + MAILS_WIDTH
             -- Używamy cached width do obliczenia pozycji startowej
             local x_cursor = base_right_x - acc_width
             
@@ -1851,7 +2059,7 @@ if ENABLE_NEW_MAIL_PULSE then
             set_color(cr, FROM_COLOR_TYPE, FROM_COLOR_CUSTOM)
             set_font(cr, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
             local from_txt = ":" .. mail.from:gsub(":*$", "")
-            -- Tu też używamy cache width (choć tu jest to estymacja przed przycięciem, ale acc_width jest już szybkie)
+            -- Tu też używamy cache width
             local max_from_width = s(225) - acc_width
             
             local from_txt_trimmed = trim_line_to_width(cr, from_txt, max_from_width)
@@ -1865,29 +2073,46 @@ if ENABLE_NEW_MAIL_PULSE then
 
             set_color(cr, SUBJECT_COLOR_TYPE, SUBJECT_COLOR_CUSTOM)
             set_font(cr, SUBJECT_FONT_NAME, SUBJECT_FONT_SIZE, SUBJECT_FONT_BOLD)
+            -- Max width musi uwzględniać przesunięcie avatara (odejmujemy go pośrednio, bo x_cursor jest już przesunięty względem mails_x)
             local max_subject_width = x_cursor - mails_x - s(12)
             
             -- Tu już mamy optymalizację (trim_line_to_width_emoji korzysta z cache TRIM_CACHE)
             local subject_chunks = trim_line_to_width_emoji(cr, mail.subject, max_subject_width, SUBJECT_FONT_NAME, SUBJECT_FONT_SIZE, SUBJECT_FONT_BOLD)
             local subject_width = get_chunks_width(cr, subject_chunks, SUBJECT_FONT_NAME, SUBJECT_FONT_SIZE, SUBJECT_FONT_BOLD)
             local SUBJECT_FROM_MARGIN = s(5)
+            
+            -- Przesuwamy kursor w lewo o całą szerokość tematu, aby zacząć rysować od lewej strony
             x_cursor = x_cursor - subject_width - SUBJECT_FROM_MARGIN
+            
+            -- Pętla rysująca temat z obsługą Hybrydową (Tekst / Symbol / Emoji)
+            -- FIX: Mierzymy szerokość PRZED narysowaniem, aby uniknąć nakładania się liter (pile-up)
             local cursor_x = x_cursor
             for _, chunk in ipairs(subject_chunks) do
-                if chunk.emoji then
+                
+                -- 1. Wybór czcionki
+                if chunk.type == "emoji" then
                     cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, SUBJECT_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                elseif chunk.type == "symbol" then
+                    cairo_select_font_face(cr, SYMBOL_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, SUBJECT_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
                 else
                     cairo_select_font_face(cr, SUBJECT_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, SUBJECT_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
                 end
+                
                 cairo_set_font_size(cr, SUBJECT_FONT_SIZE)
+                
+                -- 2. POMIAR (Najpierw mierzymy!)
+                cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS)
+                local chunk_advance = GLOBAL_TEXT_EXTENTS.x_advance
+                
+                -- 3. RYSOWANIE
                 cairo_move_to(cr, cursor_x, mail_y)
                 cairo_show_text(cr, chunk.txt)
-                cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS)
-                cursor_x = cursor_x + GLOBAL_TEXT_EXTENTS.x_advance
+                
+                -- 4. PRZESUNIĘCIE (O zmierzoną wartość)
+                cursor_x = cursor_x + chunk_advance
             end
 
-			-- ———————— Rysowanie podglądu (Preview) dla układu odwróconego ————————
-            -- (Tutaj kod preview zostaje bez zmian, bo korzysta z już zoptymalizowanych funkcji trim/get_chunks)
+            -- ———————— Rysowanie podglądu (Preview) dla układu odwróconego ————————
             if SHOW_MAIL_PREVIEW and mail.preview then
                 local preview_y = mail_y + FROM_FONT_SIZE + s(PREVIEW_VERTICAL_SPACING_BASE)
                 set_color(cr, PREVIEW_COLOR_TYPE, PREVIEW_COLOR_CUSTOM)
@@ -1903,7 +2128,7 @@ if ENABLE_NEW_MAIL_PULSE then
                 if ENABLE_PREVIEW_SCROLL and preview_chunks_width > scroll_area_stat then
                     cairo_rectangle(cr, preview_start_x - emoji_clip_pad, preview_y - PREVIEW_FONT_SIZE, scroll_area_stat + emoji_clip_pad * 2, PREVIEW_FONT_SIZE + s(8))
                     cairo_clip(cr)
-					local t = get_precise_time()
+                    local t = get_precise_time()
                     local gap = s(48)
                     local scrollable = preview_chunks_width + gap
                     local scroll_offset = (t * preview_scroll_speed) % scrollable
@@ -1911,13 +2136,19 @@ if ENABLE_NEW_MAIL_PULSE then
                     for loop=1,2 do
                         local cursor_x2 = preview_x_start + (loop - 1) * (preview_chunks_width + gap)
                         for _, c in ipairs(preview_chunks_full) do
-                            if c.emoji then cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                            -- UPDATED for Hybrid support
+                            if c.type == "emoji" then cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                            elseif c.type == "symbol" then cairo_select_font_face(cr, SYMBOL_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
                             else cairo_select_font_face(cr, PREVIEW_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL) end
                             cairo_set_font_size(cr, PREVIEW_FONT_SIZE)
+                            
+                            cairo_text_extents(cr, c.txt, GLOBAL_TEXT_EXTENTS)
+                            local adv = GLOBAL_TEXT_EXTENTS.x_advance
+                            
                             cairo_move_to(cr, cursor_x2, preview_y)
                             cairo_show_text(cr, c.txt)
-                            cairo_text_extents(cr, c.txt, GLOBAL_TEXT_EXTENTS)
-                            cursor_x2 = cursor_x2 + GLOBAL_TEXT_EXTENTS.x_advance
+                            
+                            cursor_x2 = cursor_x2 + adv
                         end
                     end
                 else
@@ -1928,19 +2159,37 @@ if ENABLE_NEW_MAIL_PULSE then
                     if preview_x < preview_start_x then preview_x = preview_start_x end
                     local cursor_x2 = preview_x
                     for _, c in ipairs(preview_chunks) do
-                        if c.emoji then cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                        -- UPDATED for Hybrid support
+                        if c.type == "emoji" then cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                        elseif c.type == "symbol" then cairo_select_font_face(cr, SYMBOL_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
                         else cairo_select_font_face(cr, PREVIEW_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL) end
                         cairo_set_font_size(cr, PREVIEW_FONT_SIZE)
+                        
+                        cairo_text_extents(cr, c.txt, GLOBAL_TEXT_EXTENTS)
+                        local adv = GLOBAL_TEXT_EXTENTS.x_advance
+                        
                         cairo_move_to(cr, cursor_x2, preview_y)
                         cairo_show_text(cr, c.txt)
-                        cairo_text_extents(cr, c.txt, GLOBAL_TEXT_EXTENTS)
-                        cursor_x2 = cursor_x2 + GLOBAL_TEXT_EXTENTS.x_advance
+                        
+                        cursor_x2 = cursor_x2 + adv
                     end
                 end
                 cairo_restore(cr)
             end
-        else
+		else
 			-- ———————— BLOK B: Rysowanie dla układu STANDARDOWEGO (od lewej do prawej) ————————
+			local start_x = mail_x -- ZMODYFIKOWANE: Początek rysowania (może się przesunąć przez avatar)
+            
+            -- ZMODYFIKOWANE: Rysowanie avatara przy lewej krawędzi
+            if avatar_path then
+                 local av_x = start_x
+				 local av_y = mail_y - AVATAR_SIZE + AVATAR_Y_OFFSET
+                 draw_avatar_rounded(cr, av_x, av_y, AVATAR_SIZE, avatar_path)
+            end
+            
+            -- Przesunięcie kursora w prawo o szerokość avatara
+            start_x = start_x + avatar_offset_px
+
 			local account_label = mail.account and ("[" .. mail.account .. "] ") or ""
             
             -- OPTYMALIZACJA: Pobierz szerokość z cache
@@ -1948,31 +2197,43 @@ if ENABLE_NEW_MAIL_PULSE then
 
             if #account_label > 0 and ACCOUNT_COLORS[mail.account] then set_color(cr, "custom", ACCOUNT_COLORS[mail.account]) else set_color(cr, "custom", ACCOUNT_DEFAULT_COLOR) end
             set_font(cr, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
-            cairo_move_to(cr, mail_x, mail_y)
+            cairo_move_to(cr, start_x, mail_y) -- Używamy start_x zamiast mail_x
 			cairo_show_text(cr, account_label)
 
             set_color(cr, FROM_COLOR_TYPE, FROM_COLOR_CUSTOM)
             set_font(cr, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
             local from_txt = (mail.from:gsub(":*$", "") .. ":")
             local from_txt_trimmed = trim_line_to_width(cr, from_txt, s(225) - (acc_width or 0))
-cairo_move_to(cr, mail_x + acc_width, mail_y)
+            cairo_move_to(cr, start_x + acc_width, mail_y)
 			cairo_show_text(cr, from_txt_trimmed)
             
             -- OPTYMALIZACJA: Pobierz szerokość z cache (zamiast cairo_text_extents)
             local from_x_advance = get_cached_width(cr, from_txt_trimmed, FROM_FONT_NAME, FROM_FONT_SIZE, FROM_FONT_BOLD)
-            local from_width = from_x_advance -- W przybliżeniu width = x_advance (wystarczy do obliczeń)
+            local from_width = from_x_advance
 
             set_color(cr, SUBJECT_COLOR_TYPE, SUBJECT_COLOR_CUSTOM)
             set_font(cr, SUBJECT_FONT_NAME, SUBJECT_FONT_SIZE, SUBJECT_FONT_BOLD)
-            local max_subject_width = MAX_MAIL_LINE_PIXELS - acc_width - from_width - s(12)
+            
+            -- === POPRAWKA 1: Użycie MAILS_WIDTH zamiast MAX_MAIL_LINE_PIXELS dla tematu ===
+            -- ZMODYFIKOWANE: Odejmujemy szerokość avatara z dostępnej przestrzeni
+            local max_subject_width = MAILS_WIDTH - acc_width - from_width - s(12) - avatar_offset_px
+            
             local subject_chunks = trim_line_to_width_emoji(cr, mail.subject, max_subject_width, SUBJECT_FONT_NAME, SUBJECT_FONT_SIZE, SUBJECT_FONT_BOLD)
-            local cursor = mail_x + acc_width + from_x_advance + s(8)
+			local cursor = start_x + acc_width + from_x_advance + s(8)
             for _, chunk in ipairs(subject_chunks) do
-                cairo_move_to(cr, cursor, mail_y)
-                if chunk.emoji then cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, SUBJECT_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
-                else cairo_select_font_face(cr, SUBJECT_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, SUBJECT_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL) end
+                cairo_move_to(cr, cursor, mail_y) -- cursor dla standardowego
+                
+                if chunk.type == "emoji" then
+                    cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, SUBJECT_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                elseif chunk.type == "symbol" then
+                    cairo_select_font_face(cr, SYMBOL_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, SUBJECT_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                else
+                    cairo_select_font_face(cr, SUBJECT_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, SUBJECT_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                end
+                
                 cairo_set_font_size(cr, SUBJECT_FONT_SIZE)
                 cairo_show_text(cr, chunk.txt)
+                
                 cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS)
                 cursor = cursor + GLOBAL_TEXT_EXTENTS.x_advance
             end
@@ -1985,13 +2246,26 @@ cairo_move_to(cr, mail_x + acc_width, mail_y)
                 local preview_txt = mail.preview or ""
                 local preview_chunks_full = split_emoji(preview_txt)
                 local preview_chunks_width = get_chunks_width(cr, preview_chunks_full, PREVIEW_FONT_NAME, PREVIEW_FONT_SIZE, PREVIEW_FONT_BOLD)
-                local scroll_area = MAX_MAIL_LINE_PIXELS - s(12)
-                local preview_x = PREVIEW_INDENT and (mail_x + s(18)) or mail_x
+                
+                -- === POPRAWKA 2: Dynamiczne obliczanie obszaru przewijania/przycinania ===
+                -- ZMODYFIKOWANE: Start podglądu uwzględnia avatar
+                local preview_x = mail_x
+                if PREVIEW_INDENT then
+                    preview_x = preview_x + s(18) + avatar_offset_px
+                else
+                    -- Bez wcięcia, ale przesunięte o avatar, żeby nie wchodziło na zdjęcie
+                    preview_x = preview_x + avatar_offset_px
+                end
+                
+                local indent_width = preview_x - mail_x
+                -- Używamy MAILS_WIDTH zamiast MAX_MAIL_LINE_PIXELS, odejmując wcięcie i margines
+                local scroll_area = MAILS_WIDTH - indent_width - s(5)
+
                 cairo_save(cr)
                 cairo_rectangle(cr, preview_x, preview_y - PREVIEW_FONT_SIZE, scroll_area, PREVIEW_FONT_SIZE + s(8))
 				cairo_clip(cr)
                 if ENABLE_PREVIEW_SCROLL and preview_chunks_width > scroll_area then
-				local t = get_precise_time()
+				    local t = get_precise_time()
                     local gap = s(48)
 					local scrollable = preview_chunks_width + gap
                     local scroll_offset = (t * preview_scroll_speed) % scrollable
@@ -1999,7 +2273,9 @@ cairo_move_to(cr, mail_x + acc_width, mail_y)
                     for loop=1,2 do
                         local cursor_x = preview_x_start + (loop - 1) * (preview_chunks_width + gap)
                         for _, c in ipairs(preview_chunks_full) do
-                            if c.emoji then cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                            -- UPDATED for Hybrid support
+                            if c.type == "emoji" then cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                            elseif c.type == "symbol" then cairo_select_font_face(cr, SYMBOL_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
                             else cairo_select_font_face(cr, PREVIEW_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL) end
                             cairo_set_font_size(cr, PREVIEW_FONT_SIZE)
                             cairo_move_to(cr, cursor_x, preview_y)
@@ -2009,15 +2285,30 @@ cairo_move_to(cr, mail_x + acc_width, mail_y)
                         end
                     end
                 else
-                    local trimmed_preview = trim_line_to_width(cr, preview_txt, scroll_area)
-                    local preview_chunks = split_emoji(trimmed_preview)
+                    -- ==========================================================
+                    -- >>> TUTAJ BYŁ BŁĄD. PODMIEŃ CAŁY BLOK 'ELSE' NA PONIŻSZY: <<<
+                    -- ==========================================================
+                    
+                    -- ZAMIAST STAREGO: local trimmed_preview = trim_line_to_width(...)
+                    -- UŻYWAMY NOWEGO:
+                    local preview_chunks = trim_line_to_width_emoji(cr, preview_txt, scroll_area, PREVIEW_FONT_NAME, PREVIEW_FONT_SIZE, PREVIEW_FONT_BOLD)
+                    
                     local current_x = preview_x
                     for _, c in ipairs(preview_chunks) do
-                        if c.emoji then cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
-                        else cairo_select_font_face(cr, PREVIEW_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL) end
+                        -- Musimy ponownie ustawić odpowiednią czcionkę dla każdego kawałka!
+                        if c.type == "emoji" then 
+                            cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                        elseif c.type == "symbol" then 
+                            cairo_select_font_face(cr, SYMBOL_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
+                        else 
+                            cairo_select_font_face(cr, PREVIEW_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL) 
+                        end
+                        
                         cairo_set_font_size(cr, PREVIEW_FONT_SIZE)
                         cairo_move_to(cr, current_x, preview_y)
                         cairo_show_text(cr, c.txt)
+                        
+                        -- Przesuwamy kursor o faktyczną szerokość narysowanego znaku
                         cairo_text_extents(cr, c.txt, GLOBAL_TEXT_EXTENTS)
                         current_x = current_x + GLOBAL_TEXT_EXTENTS.x_advance
                     end

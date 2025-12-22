@@ -485,17 +485,133 @@ case "$DISTRO" in
     if dnf list texlive-noto-emoji &>/dev/null; then EMOJI_PKG="texlive-noto-emoji"; else EMOJI_PKG="google-noto-emoji-color-fonts"; fi
     REQUIRED_PACKAGES=(conky wget lua lua-devel jq "$EMOJI_PKG")
     ;;
-  openmandriva*)
-    trap - ERR
-    zenity --question \
-        --width=550 --title="Ostrzeżenie OpenMandriva Lx" \
-        --text="⚠️ <big><b>Wykryto system OpenMandriva.</b></big>\n\nObecne wersje pakietu <b>conky</b> w oficjalnych repozytoriach stabilnych (Rome/Rock) są uszkodzone (brak obsługi Cairo/Lua).\n\nAby widget działał poprawnie, instalator spróbuje pobrać pakiet <tt>conky</tt> z repozytorium eksperymentalnego <b>cooker</b>.\n\nCzy zgadzasz się na instalację pakietu z repozytorium Cooker?" \
-        --ok-label="Tak, zgadzam się" --cancel-label="Anuluj" --icon-name="dialog-warning"
-    if [ $? -ne 0 ]; then zenity_info_or_exit "❗ <b>Przerwano instalację.</b>\nUżytkownik nie wyraził zgody na instalację z repo Cooker." 400; exit 0; fi
-    trap 'error_exit "Nieoczekiwany błąd w skrypcie!" "trap"' ERR
-    PM="dnf"; INSTALL="sudo $PM install -y"
-    PREINSTALL_CMD="if ! rpm -q conky &>/dev/null; then echo 'Instalacja conky z repo cooker...'; sudo dnf install -y conky --enablerepo=cooker-x86_64,cooker-x86_64-extra; fi; sudo dnf makecache"
-    REQUIRED_PACKAGES=(conky wget lua jq zenity-gtk fonts-ttf-noto-emoji python-ensurepip)
+openmandriva*)
+    # Pobieramy nazwę kodową (np. 'rome' lub 'vanadium')
+    OM_CODENAME=$(lsb_release -cs 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    
+    # === WARIANT 1: OpenMandriva ROME (Rolling) ===
+    if [[ "$OM_CODENAME" == "rome" ]] || [[ "$OM_CODENAME" == "rolling" ]]; then
+        PM="dnf"
+        PREINSTALL_CMD="sudo dnf clean all; sudo dnf makecache"
+        REQUIRED_PACKAGES=(conky wget lua jq zenity-gtk fonts-ttf-noto-emoji python-ensurepip)
+        
+        # --- NOWOŚĆ: Sprawdzamy, czy conky jest już zainstalowany ---
+        if rpm -q conky &>/dev/null; then
+            # Pakiet jest już w systemie - pomijamy konfigurację repozytoriów
+            # Ustawiamy standardową komendę instalacji dla pozostałych brakujących pakietów
+            INSTALL="sudo $PM install -y"
+        else
+            # Pakietu NIE MA - musimy upewnić się, że repozytorium 'extra' jest dostępne
+            REPO_ACTIVE=0
+            IS_RETRY=0 
+    
+            while [ $REPO_ACTIVE -eq 0 ]; do
+                # Sprawdzenie czy repo jest włączone
+                if dnf repolist | grep -q "rolling-x86_64-extra"; then
+                    REPO_ACTIVE=1
+                    INSTALL="sudo $PM install -y"
+                    break
+                fi
+    
+                # DEFINIOWANIE TREŚCI KOMUNIKATU
+                if [ $IS_RETRY -eq 0 ]; then
+                    HEADER_MSG="ℹ️ <big><b>Wymagane repozytorium 'Extra' jest wyłączone.</b></big>"
+                else
+                    HEADER_MSG="<span foreground='red'>⛔ <big><big><b>Wymagane repozytorium 'Extra' jest NADAL wyłączone!</b></big></big></span>"
+                fi
+    
+                FULL_TEXT="${HEADER_MSG}\n\nPakiet <b>conky</b> znajduje się w repozytorium <tt>rolling-x86_64-extra</tt>.\nAby otrzymywać aktualizacje, zaleca się włączenie go w ustawieniach systemu.\n\nCo chcesz zrobić?"
+    
+                trap - ERR
+                USER_ACTION=$(zenity --question \
+                    --width=700 --title="Konfiguracja OpenMandriva Rolling" \
+                    --text="$FULL_TEXT" \
+                    --ok-label="Wszystko OK / Sprawdź ponownie" \
+                    --cancel-label="Anuluj" \
+                    --extra-button="Otwórz Software Repository Selector" \
+                    --extra-button="Instalacja tymczasowa (Awaryjna)" \
+                    --icon-name="dialog-information")
+                
+                RET_CODE=$?
+                trap 'error_exit "Nieoczekiwany błąd w skrypcie!" "trap"' ERR
+    
+                if [ "$USER_ACTION" == "Otwórz Software Repository Selector" ]; then
+                    echo "Uruchamiam om-repo-picker..."
+                    trap - ERR
+                    om-repo-picker
+                    trap 'error_exit "Nieoczekiwany błąd w skrypcie!" "trap"' ERR
+                    
+                    (zenity --info --width=400 --timeout=3 --text="🔄 <b>Odświeżanie bazy pakietów...</b>\n\nProszę czekać, sprawdzam zmiany." || true) &
+                    sudo dnf makecache &>/dev/null
+                    IS_RETRY=1
+                    
+                elif [ "$USER_ACTION" == "Instalacja tymczasowa (Awaryjna)" ]; then
+                    trap - ERR
+                    zenity --question \
+                        --width=600 \
+                        --title="Potwierdzenie instalacji tymczasowej" \
+                        --text="ℹ️ <b>Wybrano tryb instalacji tymczasowej.</b>\n\nSkrypt wymusi instalację pakietu <b>conky</b> korzystając z repozytorium <tt>rolling-x86_64-extra</tt> <b>tylko jednorazowo</b>.\n\n⚠️ <b>Konfiguracja systemu nie zostanie zmieniona na stałe.</b>\nOznacza to, że pakiet conky zainstaluje się poprawnie, ale w przyszłości system może nie wykrywać do niego aktualizacji automatycznie.\n\nCzy chcesz kontynuować?" \
+                        --ok-label="Instaluj" \
+                        --cancel-label="Anuluj" \
+                        --icon-name="dialog-warning"
+                    
+                    TEMP_CONFIRM=$?
+                    trap 'error_exit "Nieoczekiwany błąd w skrypcie!" "trap"' ERR
+                    
+                    if [ $TEMP_CONFIRM -eq 0 ]; then
+                        echo "Wybrano tryb tymczasowy."
+                        INSTALL="sudo $PM install -y --enablerepo=rolling-x86_64-extra"
+                        REPO_ACTIVE=1
+                        break
+                    else
+                        IS_RETRY=1
+                    fi
+                    
+                elif [ $RET_CODE -eq 0 ]; then
+                    (zenity --info --width=300 --timeout=2 --text="🔍 Weryfikacja..." || true) &
+                    sudo dnf makecache &>/dev/null
+                    IS_RETRY=1
+                    
+                else
+                    zenity_info_or_exit "⛔ <b>Przerwano instalację.</b>\n\nUżytkownik anulował wybór repozytorium." 400
+                    exit 0
+                fi
+            done
+            
+            # Zabezpieczenie na wypadek wyjścia z pętli bez ustawienia INSTALL
+            if [ -z "$INSTALL" ]; then
+                 INSTALL="sudo $PM install -y"
+            fi
+        fi
+
+    # === WARIANT 2: OpenMandriva ROCK (np. 6.0 Vanadium) ===
+    else
+        trap - ERR
+        # Pytamy o zgodę na hybrydową instalację (Rock + pakiet z Rolling)
+        zenity --question \
+            --width=550 --title="OpenMandriva Lx (Rock/Vanadium)" \
+            --text="⚠️ <big><b>Wykryto wersję stabilną OpenMandriva (Rock).</b></big>\n\nAby widget działał poprawnie, instalator pobierze nowszą wersję pakietu <tt>conky</tt> (z obsługą Lua/Cairo) korzystając z repozytorium <b>Rolling</b>.\n\nCzy zgadzasz się na tymczasowe pobranie pakietu z nowszego systemu?\n(Nie wpłynie to na stabilność reszty systemu)." \
+            --ok-label="Tak, zgadzam się" --cancel-label="Anuluj" \
+            --icon-name="dialog-warning"
+        
+        if [ $? -ne 0 ]; then 
+            zenity_info_or_exit "❗ <b>Przerwano instalację.</b>\nUżytkownik nie wyraził zgody na instalację z repo Rolling." 400
+            exit 0
+        fi
+        trap 'error_exit "Nieoczekiwany błąd w skrypcie!" "trap"' ERR
+        
+        PM="dnf"
+        INSTALL="sudo $PM install -y"
+        
+        # Instalacja TYMCZASOWA z wykorzystaniem istniejących (ale wyłączonych) repozytoriów Rolling
+        PREINSTALL_CMD="if ! rpm -q conky &>/dev/null; then \
+            echo 'Instalacja conky z repozytorium Rolling (tryb tymczasowy)...'; \
+            sudo dnf install -y conky --enablerepo=rolling-x86_64,rolling-x86_64-extra; \
+        fi; \
+        sudo dnf makecache"
+        
+        REQUIRED_PACKAGES=(conky wget lua jq zenity-gtk fonts-ttf-noto-emoji python-ensurepip)
+    fi
     ;;
   mageia*)
     PM="dnf"

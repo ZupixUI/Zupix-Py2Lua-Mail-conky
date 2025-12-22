@@ -599,13 +599,26 @@ class AccountWorkerPolling(threading.Thread):
         self.daemon = True
         self._lock = threading.Lock()
         self._stop_ev = threading.Event()
+        
+        # ### ZMIANA ADAPTIVE TIMEOUT: Startujemy od 1.5s, ale pozwalamy rosnąć ###
+        self.current_timeout = 1.5 
+        self.max_timeout = 15.0
+
+    def _relax_timeout(self, e):
+        """Funkcja poluźniająca timeout w przypadku błędów czasowych."""
+        err_str = str(e).lower()
+        if "timed out" in err_str or "timeout" in err_str:
+            if self.current_timeout < self.max_timeout:
+                old = self.current_timeout
+                self.current_timeout += 2.5
+                if self.current_timeout > self.max_timeout:
+                    self.current_timeout = self.max_timeout
+                debug_print(f"[POLLING-TUNING] [{self.account['name']}] Wykryto timeout. Zwiększam limit czasu: {old}s -> {self.current_timeout}s", level="MAGENTA")
 
     def stop(self):
-        # Zatrzymaj pętlę workera
         self._stop_ev.set()
         try:
             if self.imap:
-                # Bezpiecznie zamknij sesję
                 try:
                     self.imap.logout()
                 except Exception:
@@ -627,14 +640,15 @@ class AccountWorkerPolling(threading.Thread):
                 ssl_context.verify_mode = ssl.CERT_NONE
                 debug_print(f"[{self.account['name']}] Weryfikacja certyfikatu SSL jest WYŁĄCZONA.", level="YELLOW")
 
+            # ### ZMIANA ADAPTIVE TIMEOUT: Przekazujemy self.current_timeout do konstruktora ###
             if encryption_mode == "starttls":
-                debug_print(f"[POLLING] - [{self.account['name']}] Łączenie w trybie STARTTLS...", level="GREEN")
-                self.imap = imaplib.IMAP4(self.account["host"], self.account["port"])
+                debug_print(f"[POLLING] - [{self.account['name']}] Łączenie w trybie STARTTLS (timeout={self.current_timeout}s)...", level="GREEN")
+                self.imap = imaplib.IMAP4(self.account["host"], self.account["port"], timeout=self.current_timeout)
                 self.imap.starttls(ssl_context=ssl_context)
                 self.imap.login(self.account["login"], self.account["password"])
             else: # ssl
-                debug_print(f"[POLLING] - [{self.account['name']}] Łączenie w trybie SSL...", level="GREEN")
-                self.imap = imaplib.IMAP4_SSL(self.account["host"], self.account["port"], ssl_context=ssl_context)
+                debug_print(f"[POLLING] - [{self.account['name']}] Łączenie w trybie SSL (timeout={self.current_timeout}s)...", level="GREEN")
+                self.imap = imaplib.IMAP4_SSL(self.account["host"], self.account["port"], ssl_context=ssl_context, timeout=self.current_timeout)
                 self.imap.login(self.account["login"], self.account["password"])
 
             with self._lock:
@@ -642,6 +656,9 @@ class AccountWorkerPolling(threading.Thread):
                 self.last_error = None
             debug_print(f"[POLLING] - [{self.account['name']}] Połączono z IMAP.", level="GREEN")
         except Exception as e:
+            # ### ZMIANA ADAPTIVE TIMEOUT: Sprawdzamy, czy trzeba poluźnić ###
+            self._relax_timeout(e)
+            
             with self._lock:
                 self.connected = False
                 if _is_transient_net_error(e):
@@ -681,6 +698,9 @@ class AccountWorkerPolling(threading.Thread):
                     self.imap.noop()
                     debug_print(f"[POLLING] - [{self.account['name']}] NOOP OK", level=POLLING_NOOP_OK_COLOR)
                 except Exception as e:
+                    # ### ZMIANA ADAPTIVE TIMEOUT: Reagujemy na timeouty w trakcie NOOP ###
+                    self._relax_timeout(e)
+
                     if self.internet_monitor.force_all_offline or _is_transient_net_error(e) or not RUNNING_EV.is_set():
                         debug_print(f"[POLLING] - [{self.account['name']}] NOOP FAIL (łagodnie): {e}", level="YELLOW")
                         with self._lock:
@@ -701,7 +721,13 @@ class AccountWorkerPolling(threading.Thread):
                 self.connect()
                 if not self.connected:
                     with self._lock:
-                        self.last_error = f"[POLLING] - [Błąd konta {self.account['name']}] Brak połączenia z internetem lub serwerem IMAP"
+                        # Jeśli mamy błąd timeoutu, informujemy użytkownika w logu o zwiększonym limicie
+                        suffix = ""
+                        if self.current_timeout > 1.5:
+                            suffix = f" (timeout zwiększony do {self.current_timeout}s)"
+                        
+                        if not self.last_error:
+                             self.last_error = f"[POLLING] - [Błąd konta {self.account['name']}] Brak połączenia.{suffix}"
                     pacer.wait()
                     continue
 
@@ -714,6 +740,7 @@ class AccountWorkerPolling(threading.Thread):
                 continue
 
             try:
+                # ### ZMIANA: Upewnij się, że masz wklejoną funkcję get_last_mails_for_account_polling z poprzedniej odpowiedzi (tę z RFC822) ###
                 all_count, unread, mails = get_last_mails_for_account_polling(
                     self.imap, self.account,
                     n=self.config["max_mails"],
@@ -731,6 +758,9 @@ class AccountWorkerPolling(threading.Thread):
                     self.last_error = None
                 debug_print(f"[POLLING] - [{self.account['name']}] Pobranie maili OK ({unread} nieprzeczytanych)", level=POLLING_NOOP_OK_COLOR)
             except Exception as e:
+                # ### ZMIANA ADAPTIVE TIMEOUT: Reagujemy na timeouty przy pobieraniu maili ###
+                self._relax_timeout(e)
+
                 if self.internet_monitor.force_all_offline or _is_transient_net_error(e) or not RUNNING_EV.is_set():
                     debug_print(f"[POLLING] - [{self.account['name']}] BŁĄD pobierania (łagodnie): {e}", level="YELLOW")
                     with self._lock:
