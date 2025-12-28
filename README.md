@@ -1,7 +1,9 @@
 # Zupix-Py2Lua-Mail-Conky
+> Cache mailowy wygenerowany przez AI na potrzby demonstracyjne
 
-![Podgląd widgetu](screenshots/cache.png)
-![Podgląd widgetu](screenshots/cache_preview_scroll.gif)
+<img src="screenshots/cache.png" width="100%">
+<img src="screenshots/cache_preview_scroll.gif" width="100%">
+
 
 **Zupix-Py2Lua-Mail-Conky** to zaawansowany, interaktywny i w pełni konfigurowalny widget e-mail dla Conky, zasilany przez wydajny backend w Pythonie.
 
@@ -32,7 +34,6 @@ AI jest fantastycznym pomocnikiem, ale nie ukrywam, że w tym przypadku znajomo�
     *   [Skrypty Pomocnicze (Bash / Zenity)](#3-skrypty-pomocnicze-bash--zenity)
 *   [Struktura Projektu](#struktura-projektu)
 *   [Instalacja i Konfiguracja](#instalacja-i-konfiguracja)
-*   [Interakcja z Widgetem](#interakcja-z-widgetem)
 *   [Zależności](#zależności)
 *   [Licencja](#licencja)
 
@@ -50,15 +51,15 @@ To serce i mózg całej operacji, zaprojektowane do stabilnej i wydajnej pracy 2
     *   **IMAP IDLE:** Zalecany tryb nasłuchu, który pozwala na otrzymywanie powiadomień bez ciągłego odpytywania serwera. Reakcja następuje zazwyczaj w ciągu kilku do kilkunastu sekund (co jest cechą charakterystyczną serwerów IMAP + IDLE), a wszystko to przy minimalnym zużyciu zasobów systemowych.
     *   **Polling:** Tradycyjny tryb cyklicznego odpytywania serwera oraz pobierania maili w regularnych, definiowanych przez użytkownika odstępach czasu. Sprawdzi się wszędzie tam, gdzie tryb IDLE nie jest obsługiwany, oraz tam gdzie nie lubimy kompromisów 😎.
 
-*   **Automatyczny Fallback do trybu polling (Per-konto):** To jedna z ważniejszych funkcji backendu. Nawet jeśli globalnie wybrany jest tryb IDLE, przy nawiązywaniu połączenia skrypt sprawdza, czy serwer danego konta faktycznie wspiera komendę `IDLE`. Jeśli nie, **tylko to jedno konto jest automatycznie i płynnie przełączane w tryb Polling**, podczas gdy pozostałe konta nadal korzystają z IDLE. Pozwala to na bezproblemową pracę w środowisku mieszanym.
+*   **Automatyczny Fallback do trybu polling (Per-konto):** To jedna z ważniejszych funkcji backendu. Nawet jeśli globalnie wybrany jest tryb IDLE, przy nawiązywaniu połączenia skrypt sprawdza, czy serwer danego konta faktycznie wspiera komendę **`IDLE`**. Jeśli nie, **tylko to jedno konto jest automatycznie i płynnie przełączane w tryb Polling**, podczas gdy pozostałe konta nadal korzystają z IDLE. Pozwala to na bezproblemową pracę w środowisku mieszanym.
 
 *   **Inteligentny monitor sieci:** Backend nie próbuje łączyć się w nieskończoność, gdy nie ma internetu. Posiada dwuetapowy system monitorowania połączenia:
     -  **Sprawdzenie systemowe (`nmcli`):** Błyskawicznie odczytuje status z NetworkManagera.
-    -  **Aktywny test połączenia:** Jeśli status jest niejasny, wykonuje test połączenia (przez `ping` lub próbę otwarcia socketu), aby mieć 100% pewności.
+    -  **Aktywny test połączenia:** Jeśli status jest niejasny, wykonuje test połączenia (przez **`ping`** lub próbę otwarcia socketu), aby mieć 100% pewności.
     Dzięki temu w trybie offline skrypt wstrzymuje pracę, nie generuje zbędnych błędów i automatycznie wznawia ją, gdy tylko połączenie wróci.
 
 *   **Rozbudowane oczyszczanie treści (Denoising):** Zanim treść maila trafi do widgetu, przechodzi przez zaawansowany proces filtrowania, który usuwa cyfrowy "szum" i wyciąga samą esencję wiadomości. Mechanizm ten usuwa m.in.:
-    *   Niepotrzebne tagi HTML (`<style>`, `<script>`, nagłówki).
+    *   Niepotrzebne tagi HTML (**`<style>`**, **`<script>`**, nagłówki).
     *   Automatyczne stopki i noty prawne ("Ta wiadomość jest poufna...").
     *   Fragmenty cytowanych odpowiedzi ("W dniu ... użytkownik ... napisał:").
     *   Standardowe sygnatury mailowe.
@@ -70,31 +71,34 @@ To serce i mózg całej operacji, zaprojektowane do stabilnej i wydajnej pracy 2
 *   **Blokada pojedynczej instancji:** Skrypt zapewnia, że w danym momencie działa tylko jedna jego kopia, co zapobiega zbędnemu zużyciu zasobów i potencjalnym konfliktom w dostępie do plików tymczasowych.
 
 ### 2. Frontend (LUA) - konfigurowalny interfejs graficzny
-*   **Pełna konfiguracja wizualna:** Dostosuj wygląd widgetu w najmnijeszym szczególe edytując plik e-mail.lua w sekcji `--  BLOK DEFINICJI WYMIARÓW` albo skorzystaj z 16 gotowych układów dopasowanym do każdego rogu pulpitu dla rozdzielczości 4K oraz FullHD, za pomocą skryptu `Zmiana_pozycji_okna_conky_oraz_layoutu.sh`.
-![Podgląd zmiany layoutu](screenshots/layout_change.gif)
+*   **Pełna konfiguracja wizualna:** Dostosuj wygląd widgetu w najmnijeszym szczególe edytując plik e-mail.lua w sekcji `--  BLOK DEFINICJI WYMIARÓW` albo skorzystaj z 16 gotowych układów dopasowanych do każdego rogu pulpitu dla rozdzielczości 4K oraz FullHD, za pomocą skryptu **`Zmiana_layoutu_oraz_skalowania.sh`**.
 
+
+https://github.com/user-attachments/assets/7658a374-805c-493b-9fa0-14026ae30ab5
 
 *   **Zarządzanie blokiem mailowym w czasie rzeczywistym:**
-    -   **Przewijanie listy maili:** Widget reaguje na zmiany w pliku sterującym `/tmp/Zupix-Py2Lua-Mail-conky/conky_mail_scroll_offset`, umożliwiając przewijanie listy za pomocą skrótów klawiszowych. 
-    Aby sprawnie i szybko manipulować indeksem należy dodać skrypty `add_hotkey_mail_down.sh` oraz `add_hotkey_mail_up.sh` jako polecenia do skrótów klawiszowych.
-    Listę można dowolnie przesuwać góra/dół, a po dojechaniu do końca listy uruchomi się animacja "shake". Po kilku sekundach lua automatycznie wraca indeks do pozycji 0.
-    ![Podgląd widgetu](screenshots/cache_shake.gif)
-    -   **Filtrowanie kont:** Dynamicznie przełączanie widoku między wszystkimi kontami, za pomocą skryptu `Zmień_wyświetlane_konto.sh`
+    -   **Przewijanie listy maili:** Widget reaguje na zmiany w pliku sterującym **`/dev/shm/Zupix-Py2Lua-Mail-conky/conky_mail_scroll_offset`**, umożliwiając przewijanie listy za pomocą skrótów klawiszowych. 
+    Aby sprawnie i szybko manipulować indeksem należy dodać skrypty **`przewijanie_listy_hotkey_mail_up.sh`** oraz **`przewijanie_listy_hotkey_mail_down.sh`** jako polecenia do skrótów klawiszowych.
+    Listę można dowolnie przesuwać góra/dół, a po dojechaniu do końca listy uruchomi się animacja **"shake"**. Po kilku sekundach lua automatycznie wraca indeks do pozycji 0. <img src="screenshots/cache_shake.gif" width="100%">
+    
+    - **Filtrowanie kont:** Dynamicznie przełączanie widoku między wszystkimi kontami, za pomocą skryptu **`Zmień_wyświetlane_konto.sh`**
+      <img src="screenshots/zmiana_konta.gif" width="100%">
     -   **Zaawansowane renderowanie tekstu:** Duże wsparcie dla **emoji** w tematach i podglądzie wiadomości, a także animowane, płynne przewijanie dla zbyt długich treści.
 ---
 
 #### Przyjazny dla użytkownika zbiór narzędzi:
 
-*   **Sprytny zestaw skryptów instalacji oraz konfiguracji w GUI z wykorzyztaniem Zenity:** Zapomnij o ręcznej edycji plików oraz potrzebnych zależnościach! Projekt zawiera zestaw skryptów z interfejsem graficznym (`Zenity`), które prowadzą użytkownika krok po kroku przez cały proces:
+*   **Sprytny zestaw skryptów instalacji oraz konfiguracji w GUI z wykorzyztaniem Zenity:** Zapomnij o ręcznej edycji plików oraz potrzebnych zależnościach! Projekt zawiera zestaw skryptów z interfejsem graficznym (**`Zenity`**), które prowadzą użytkownika krok po kroku przez cały proces:
       - Automatycznego wykrywania dystrybucji i instalacji odpowiednich zależności. **`1.Instalacja_zależności.sh`**
    ![Podgląd widgetu](screenshots/1.Instalacja_zależności.png)
-      - Automatycznej konfiguracji wszystkich niezbędnych ścieżek w plikach projektu. **`2.Podmiana_ścieżek_bezwzględnych_w_zmiennych.sh`** (Przenieś folder gdzie chcesz i nazwij jak chcesz 😉)
+      - ~~Automatycznej konfiguracji wszystkich niezbędnych ścieżek w plikach projektu. **`2.Podmiana_ścieżek_bezwzględnych_w_zmiennych.sh`** (Przenieś folder gdzie chcesz i nazwij jak chcesz 😉)~~
+      - Pliki konfiguracyjne **`conkyrc_zupix`** oraz **`e-mail.lua`** od wersji **`v1.2.0`** są całkowicie portable i automatycznie wykrywają lokalizację projektu. Skrypt **`2.Podmiana_ścieżek_bezwzględnych_w_zmiennych.sh`** nie jest już potrzebny.
    ![Podgląd widgetu](screenshots/2.Podmiana_ścieżek_bezwzględnych_w_zmiennych.png)
-      - Graficzny menedżer dodawania, edytowania, przesuwania oraz usuwania kont e-mail. **`3.Konfiguracja_kont.sh`**
+      - Graficzny menedżer dodawania, edytowania, przesuwania oraz usuwania kont e-mail. **`2.Konfiguracja_kont.sh`**
    ![Podgląd widgetu](screenshots/Konfiguracja_kont.png)
    
-      - **Solidne zarządzanie procesami:** Główny skrypt startowy **`4.START_RESTART_skryptów_oraz_conky.sh`** dba o to, by widget działał nieprzerwanie i stabilnie. Zawiera mechanizm "watchdoga", który automatycznie restartuje Conky w razie awarii lub nadmiernego zużycia pamięci. Uruchomiony ręcznie w oknie terminala dostarcza dużo informacji na temat tego co dzieje się pod maską.
-![Podgląd widgetu](screenshots/4.START_skryptów_oraz_conky.png)
+      - **Solidne zarządzanie procesami:** Główny skrypt startowy **`3.START_RESTART_skryptów_oraz_conky.sh`** dba o to, by widget działał nieprzerwanie i stabilnie. Zawiera mechanizm "watchdoga", który automatycznie restartuje Conky w razie awarii lub nadmiernego zużycia pamięci. Uruchomiony ręcznie w oknie terminala dostarcza dużo informacji na temat tego co dzieje się pod maską.
+![Podgląd widgetu](screenshots/3.START_RESTART_skryptów_oraz_conky.png)
 *   **Narzędzia pomocnicze:** Zestaw skryptów do łatwego testowania i zarządzania widgetem (np. oznaczanie maili jako przeczytane/nieprzeczytane, zmiana layoutu w locie).
 
      
@@ -106,7 +110,7 @@ To serce i mózg całej operacji, zaprojektowane do stabilnej i wydajnej pracy 2
 ![Podgląd widgetu](screenshots/Oznacz_wszystkie_wiadomości_jako_przeczytane_work.png)      
 ![Podgląd widgetu](screenshots/Oznacz_wszystkie_wiadomości_jako_przeczytane_done.png)
 
-    - Skrypt do płynnej zmiany layoutów podczas działania widgetu. **`Zmiana_layoutu_oraz_skalowania.sh`**
+    - Skrypt do płynnej zmiany layoutów oraz skalowania podczas działania widgetu. **`Zmiana_layoutu_oraz_skalowania.sh`**
 ![Podgląd widgetu](screenshots/Zmiana_pozycji_okna_conky_oraz_layoutu.png)   
 
 ---
@@ -204,13 +208,13 @@ To przyjazny dla użytkownika "klej", który spaja cały system. Zestaw skryptó
 ```
 .
 ├── 1.Instalacja_zależności.sh                        # Krok 1: Instalator zależności
-├── 2.Podmiana_ścieżek_bezwzględnych_w_zmiennych.sh   # Krok 2: Konfigurator ścieżek
-├── 3.Konfiguracja_kont.sh                            # Krok 3: Menedżer kont e-mail
-├── 4.START_RESTART_skryptów_oraz_conky.sh            # Krok 4: Główny skrypt uruchomieniowy z mechanizmem restartu
+├── 2.Konfiguracja_kont.sh                            # Krok 2: Menedżer kont e-mail
+├── 3.START_RESTART_skryptów_oraz_conky.sh            # Krok 3: Główny skrypt uruchomieniowy z mechanizmem restartu
 ├── add_hotkey_mail_down.sh                           # Skrypt bash do zmniejszania indeksu w pliku `conky_mail_scroll_offset` (przewijanie listy w górę)
 ├── add_hotkey_mail_up.sh                             # Skrypt bash do zwiększania indeksu w pliku `conky_mail_scroll_offset` (przewijanie listy w dół)
 ├── Authors.txt                                       # Podstawowe informacje o autorach oraz kontakt
 ├── config                                            # Folder z plikami konfiguracyjnymi
+|   ├── avatar_map.json                               # Plik json z mapą adresów e-mail oraz lokalizacji plików png, dla funkcji avatarów
 │   ├── accounts.json                                 # Główny plik z danymi kont (dla backendu ZupixPyMail.py)
 │   ├── denoise_patterns                              # Plik tekstowy z ręcznymi definicjami czyszczenia maili
 │   └── mail_conky_max                                # Plik tekstowy z limitem maili na liście wigetu, wyrażonym w cyfrach całkowitych naturalnych 
@@ -233,7 +237,7 @@ To przyjazny dla użytkownika "klej", który spaja cały system. Zestaw skryptó
 ├── Oznacz_n_wiadomości_jako_nieprzeczytane.sh        # Skrypt bash do oznaczania N najnowszych wiadomości jako nieprzeczytane
 ├── Oznacz_wszystkie_wiadomości_jako_przeczytane.sh   # Skrypt bash do oznaczania wszystkich wiadomości jako przeczytane
 ├── py                                                # Skrypty backendu (Python)
-│   ├── venv                                          # Wirtualne środowisko Python dla backendu
+│   ├── venv                                          # Wirtualne środowisko Python dla backendu (tworzone podczas działania `1.Instalacja_zależności.sh`)
 │   └── ZupixPyMail.py                                # Serce projektu. Główny skrypt python pobierający maile
 ├── sound                                             # Folder z plikami dźwiękowymi 
 │   ├── error_2.wav                                   # --
@@ -263,22 +267,22 @@ Instalacja jest niezwykle prosta dzięki graficznemu kreatorowi. **Ręczna edycj
 
 
 1.  **Sklonuj repozytorium**:
-    Otwórz terminal i wklej poniższe komendy. Pierwsza pobierze projekt, a druga wejdzie do jego głównego katalogu z plikami:
+    Otwórz terminal i wklej poniższe komendy. Pierwsza pobierze projekt, a druga wejdzie do głównego katalogu z plikami:
     ```bash
     git clone https://github.com/ZupixUI/Zupix-Py2Lua-Mail-conky.git
-    cd Zupix-Py2Lua-Mail-conky/Zupix-Py2Lua-Mail-conky
+    cd Zupix-Py2Lua-Mail-conky
     ```
     Możesz też pobrać gotową paczkę  - https://github.com/ZupixUI/Zupix-Py2Lua-Mail-conky/releases
 
 2.  **Nadaj uprawnienia do wykonania skryptom**:
-    Skrypty sh powinny być oznaczone jako wykonywalne, ale gdyby z jakiś powodów tak nie było, to wykonaj tą prostą komednę która zmieni uprawienia we wszystkich skryptach sh:
+    Skrypty sh powinny być oznaczone jako wykonywalne, ale gdyby z jakiś powodów nie były, nadaj im wsadowo prawa do wykonywania:
     ```bash
     chmod +x *.sh
     ```
 
-3.  **Uruchom instalator**:
-    To jedyny krok, który musisz wykonać. Uruchom pierwszy skrypt `1.Instalacja_zależności.sh`, a reszta zrobi się sama! Poprowadzi Cię on przez cały proces: instalację zależności, konfigurację ścieżek oraz dodawanie kont e-mail za pomocą graficznego menedżera. Po zakończeniu konfiguracji, instalator zaproponuje automatyczne uruchomienie widgetu.
-    Skrypty zostały zaprojektowane do uruchamiania bezpośrednio z poziomu środoiwska graficznego, ale jeśli napotkasz jakiś problem z uruchomieniem użyj po prostu:
+3.  **Uruchom instalator `1.Instalacja_zależności.sh`**:
+    To jedyny krok, który musisz wykonać. Uruchom pierwszy skrypt `1.Instalacja_zależności.sh`, a reszta zrobi się sama! Grupa spiętych skryptów przeprowadzi Cię przez cały proces: instalację zależności, tworzenie venv oraz dodawanie kont e-mail za pomocą graficznego menedżera. Po zakończeniu konfiguracji kont, skrypt zaproponuje automatyczne uruchomienie widgetu.
+    Skrypty zostały zaprojektowane do uruchamiania bezpośrednio z poziomu menedżera plików (GUI), ale jeśli napotkasz jakiś problem z uruchomieniem użyj w konsoli:
     ```bash
     ./1.Instalacja_zależności.sh
     ```
@@ -302,6 +306,20 @@ Instalator automatycznie zajmie się instalacją wszystkich wymaganych pakietów
 
   *  `Noto Color Emoji` Czcionka z emotkami.
 
-## Licencja
 
-Projekt jest udostępniony na licencji GPL v3+.
+## Autorzy i Licencja
+
+### Autorzy projektu
+* **Amator_80**: <mmajcher804@gmail.com> (Discord: Amator80)
+* **Zupix**: <zupix.py.lua.mail.conky@gmail.com> (Discord: Zupix)
+> **Warto wiedzieć:** Oba projekty, choć zrodzone z podobnej idei, powstały i były rozwijane niezależnie. Prezentują odmienne filozofie i rozwiązania techniczne. Zachęcamy do zapoznania się z oboma, aby wybrać widżet, który najlepiej pasuje do Twoich oczekiwań i stylu pracy.
+
+Możesz spotkać nas na serwerze Discord: **Świat Linuksa** - [https://discord.com/invite/69EMVfN](https://discord.com/invite/69EMVfN)
+
+### Powiązane Projekty
+Warto również zapoznać się z siostrzanym projektem autorstwa **Amator_80**, który stanowi alternatywne podejście do tego samego zagadnienia:
+* **conky-automail-suite** – Drugi w pełni funkcjonalny widżet do monitorowania poczty, rozwijany równolegle.
+* **Repozytorium na GitHub**: [https://github.com/Amator80/conky-automail-suite](https://github.com/Amator80/conky-automail-suite)
+
+
+

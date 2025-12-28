@@ -109,10 +109,9 @@ ACCOUNT_COLORS = {
 }
 
 local ACCOUNT_NAMES = {
-    "Wszystkie konta",
 }
+
 local ACCOUNT_KEYS = {
-    nil,
 }
 
 --———————————————————————————————— WIDOCZNOŚĆ ELEMENTÓW UI ————————————————————————————————
@@ -183,10 +182,10 @@ local auto_scroll_active = false
 local auto_scroll_start_time = 0
 local previous_manual_scroll_offset = 0
 
--- Cache dla przyciętych tekstów (żeby nie liczyć szerokości w każdej klatce)
-local TRIM_CACHE = {}
--- Cache dla szerokości tekstów (żeby nie mierzyć ich w każdej klatce)
-local WIDTH_CACHE = {}
+local TRIM_CACHE = {} -- Cache dla przyciętych tekstów (żeby nie liczyć szerokości w każdej klatce)
+local WIDTH_CACHE = {} -- Cache dla szerokości tekstów (żeby nie mierzyć ich w każdej klatce)
+local PREVIEW_FULL_CACHE = {} -- Cache dla pełnych podglądów i ich szerokości
+local AVATAR_SURFACE_CACHE = {} -- Cache dla gotowych, przyciętych avatarów
 
 -- Cache dla mapy avatarów
 local cached_avatar_map = nil
@@ -391,6 +390,8 @@ local LAYOUT_SPECIFIC_CONFIGS = {
 require 'cairo'
 local json = require("dkjson")
 pcall(require, 'cairo_xlib')
+
+
 
 -- Zmienne do buforowania zawartości plików i ich czasu modyfikacji
 local cached_mail_data = nil
@@ -901,51 +902,86 @@ local function draw_png_rotated_safe(cr, x, y, w, h, path, angle_deg, label)
     cairo_restore(cr)
 end
 
--- ———————— NOWOŚĆ: Funkcja do rysowania avatara z przycinaniem (Circle/Rounded) ————————
+-- ———————— NOWOŚĆ: Funkcja do rysowania avatara z CACHE (Pre-render) ————————
 local function draw_avatar_rounded(cr, x, y, size, path)
-    -- Bezpieczne ładowanie (korzystamy z cache'u PNG, tak jak wyżej)
-    local image = png_surface_cache[path]
-    if image == nil or image == false then
+    local shape = AVATAR_SHAPE or "square"
+    local cache_key = path .. "|" .. size .. "|" .. shape
+    
+    -- 1. SPRAWDZENIE CACHE: Czy mamy już gotowy, przycięty obrazek?
+    local cached_surf = AVATAR_SURFACE_CACHE[cache_key]
+    
+    if cached_surf then
+        -- Mamy gotowca! Wklejamy go w ułamku milisekundy.
+        cairo_set_source_surface(cr, cached_surf, x, y)
+        cairo_paint(cr)
+        return
+    end
+
+    -- 2. BRAK W CACHE: Musimy go stworzyć (to się dzieje tylko raz!)
+    
+    -- Najpierw ładujemy surowy plik (korzystając z istniejącego cache PNG)
+    local raw_image = png_surface_cache[path]
+    if raw_image == nil or raw_image == false then
         local file = io.open(path, "rb")
         if file then
             file:close()
-            local ok, loaded_image = pcall(cairo_image_surface_create_from_png, path)
-            if ok and loaded_image and cairo_image_surface_get_width(loaded_image) > 0 then
-                if image and type(image) == "userdata" then cairo_surface_destroy(image) end
-                png_surface_cache[path] = loaded_image
-                image = loaded_image
+            local ok, loaded = pcall(cairo_image_surface_create_from_png, path)
+            if ok and loaded and cairo_image_surface_get_width(loaded) > 0 then
+                if raw_image and type(raw_image) == "userdata" then cairo_surface_destroy(raw_image) end
+                png_surface_cache[path] = loaded
+                raw_image = loaded
             else
-                if loaded_image and type(loaded_image) == "userdata" then cairo_surface_destroy(loaded_image) end
                 png_surface_cache[path] = false
-                image = false
+                return -- Błąd ładowania
             end
-        else png_surface_cache[path] = false; image = false end
+        else
+            png_surface_cache[path] = false
+            return -- Brak pliku
+        end
     end
-    
-    if not image or image == false then return end -- Po prostu nie rysuj jeśli brak pliku
-    
-    local img_w = cairo_image_surface_get_width(image)
-    local img_h = cairo_image_surface_get_height(image)
-    
-    cairo_save(cr)
-    
-    -- Tworzenie ścieżki przycinania (Clip Path)
-    if AVATAR_SHAPE == "circle" then
-        cairo_arc(cr, x + size/2, y + size/2, size/2, 0, 2*math.pi)
-    elseif AVATAR_SHAPE == "rounded" then
-        draw_rounded_rect(cr, x, y, size, size, size/4) -- 25% zaokrąglenia
+
+    if not raw_image then return end
+
+    -- Tworzymy nowy, pusty surface o wymiarach avatara
+    -- Używamy create_similar, żeby był kompatybilny z ekranem (najszybszy format)
+    local final_surf = cairo_surface_create_similar(cairo_get_target(cr), CAIRO_CONTENT_COLOR_ALPHA, size, size)
+    local cr_temp = cairo_create(final_surf)
+
+    -- Rysujemy kształt przycinania NA TYMCZASOWYM surface (od pozycji 0,0)
+    if shape == "circle" then
+        cairo_arc(cr_temp, size/2, size/2, size/2, 0, 2*math.pi)
+    elseif shape == "rounded" then
+        -- Rysujemy prostokąt zaokrąglony (musimy tu użyć lokalnej logiki, bo draw_rounded_rect rysuje na 'cr')
+        local r = size / 4
+        cairo_new_sub_path(cr_temp)
+        cairo_arc(cr_temp, size - r, r, r, -math.pi/2, 0)
+        cairo_arc(cr_temp, size - r, size - r, r, 0, math.pi/2)
+        cairo_arc(cr_temp, r, size - r, r, math.pi/2, math.pi)
+        cairo_arc(cr_temp, r, r, r, math.pi, 3*math.pi/2)
+        cairo_close_path(cr_temp)
     else
-        cairo_rectangle(cr, x, y, size, size)
+        cairo_rectangle(cr_temp, 0, 0, size, size)
     end
-    cairo_clip(cr)
     
-    -- Skalowanie i rysowanie
-    cairo_translate(cr, x, y)
-    cairo_scale(cr, size / img_w, size / img_h)
-    cairo_set_source_surface(cr, image, 0, 0)
+    cairo_clip(cr_temp) -- Przycinamy ten tymczasowy obszar
+
+    -- Skalujemy i rysujemy surowy obrazek na tymczasowy obszar
+    local img_w = cairo_image_surface_get_width(raw_image)
+    local img_h = cairo_image_surface_get_height(raw_image)
+    
+    cairo_scale(cr_temp, size / img_w, size / img_h)
+    cairo_set_source_surface(cr_temp, raw_image, 0, 0)
+    cairo_paint(cr_temp)
+
+    -- Sprzątamy po tymczasowym "malarzu"
+    cairo_destroy(cr_temp)
+
+    -- 3. ZAPIS DO CACHE i RYSOWANIE FINALNE
+    AVATAR_SURFACE_CACHE[cache_key] = final_surf
+    
+    -- Teraz rysujemy ten gotowy surface na głównym ekranie
+    cairo_set_source_surface(cr, final_surf, x, y)
     cairo_paint(cr)
-    
-    cairo_restore(cr)
 end
 
 
@@ -1096,7 +1132,8 @@ local function split_emoji(text)
     return res
 end
 
--- ———————— Funkcja obliczenia całkowitej szerokości w pikselach dla tekstu, który został wcześniej podzielony na "kawałki" ————————
+-- ———————— Funkcja obliczenia całkowitej szerokości w pikselach dla tekstu ————————
+-- POPRAWKA: Zapisuje też .width do chunka, żeby scrollowanie działało bez ponownego mierzenia!
 local function get_chunks_width(cr, chunks, font_name, font_size, font_bold)
     local width = 0
     for _, chunk in ipairs(chunks) do
@@ -1109,15 +1146,18 @@ local function get_chunks_width(cr, chunks, font_name, font_size, font_bold)
         end
         cairo_set_font_size(cr, font_size)
         cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS)
-        width = width + GLOBAL_TEXT_EXTENTS.x_advance
+        
+        -- === TU BYŁ BRAKUJĄCY ELEMENT ===
+        chunk.width = GLOBAL_TEXT_EXTENTS.x_advance -- Zapamiętujemy szerokość w obiekcie!
+        
+        width = width + chunk.width
     end
     return width
 end
 
-
--- ———————— Funkcja skracania tekstu: Wersja WYDAJNA ————————
+-- ———————— Funkcja skracania tekstu: Wersja WYDAJNA Z CACHE SZEROKOŚCI (V4) ————————
 local function trim_line_to_width_emoji(cr, text, max_width, font_name, font_size, font_bold)
-    local cache_key = "HYBRID_V3_PERF_" .. text .. "|" .. max_width .. "|" .. tostring(font_bold) .. "|" .. font_size
+    local cache_key = "HYBRID_V4_WIDTH_" .. text .. "|" .. max_width .. "|" .. tostring(font_bold) .. "|" .. font_size
     if TRIM_CACHE[cache_key] then return TRIM_CACHE[cache_key] end
 
     local chunks = split_emoji(text)
@@ -1133,64 +1173,88 @@ local function trim_line_to_width_emoji(cr, text, max_width, font_name, font_siz
         cairo_set_font_size(cr, font_size)
     end
 
-    -- Obliczanie szerokości całości (szybki test czy w ogóle trzeba ciąć)
+    -- KROK 1: Obliczanie szerokości całości i ZAPISYWANIE jej w chunkach
     local total_width = 0
     for _, chunk in ipairs(chunks) do
         set_chunk_font(chunk)
         cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS)
-        total_width = total_width + GLOBAL_TEXT_EXTENTS.x_advance
+        chunk.width = GLOBAL_TEXT_EXTENTS.x_advance -- <--- TU ZAPISUJEMY SZEROKOŚĆ NA PRZYSZŁOŚĆ
+        total_width = total_width + chunk.width
     end
 
+    -- Jeśli całość się mieści, zwracamy chunki, które mają już wypełnione pole .width!
     if total_width <= max_width then
         TRIM_CACHE[cache_key] = chunks
         return chunks
     end
 
-    -- Przycinanie
+    -- KROK 2: Przycinanie
     set_font(cr, font_name, font_size, font_bold)
     local ellipsis = "..."
     cairo_text_extents(cr, ellipsis, GLOBAL_TEXT_EXTENTS)
     local ellipsis_w = GLOBAL_TEXT_EXTENTS.x_advance
-    -- Rezerwujemy miejsce na kropki (bezpieczna metoda)
+    
+    -- Rezerwujemy miejsce na kropki
     local target_width = math.max(0, max_width - ellipsis_w)
 
     local current_w = 0
     local new_chunks = {}
     
     for _, chunk in ipairs(chunks) do
-        set_chunk_font(chunk)
-        cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS)
-        local cw = GLOBAL_TEXT_EXTENTS.x_advance
+        -- Tu korzystamy z już obliczonego chunk.width z KROKU 1
+        local cw = chunk.width 
         
         if current_w + cw <= target_width then
             table.insert(new_chunks, chunk)
             current_w = current_w + cw
         else
             local remaining = target_width - current_w
+            set_chunk_font(chunk) -- Ustawiamy font dla ciętego fragmentu
             
             if chunk.type == "text" then 
-                -- Tniemy tekst (Binary search - bardzo szybki)
+                -- Tniemy tekst (Binary search)
                 local sub = chunk.txt
                 local low, high = 0, utf8_len(sub)
                 local best_idx = 0
+                local best_width = 0 -- Zapamiętujemy szerokość zwycięzcy
+                
                 while low <= high do
                     local mid = math.floor((low+high)/2)
                     local str_sub = utf8_sub(sub, 1, mid)
                     cairo_text_extents(cr, str_sub, GLOBAL_TEXT_EXTENTS)
-                    if GLOBAL_TEXT_EXTENTS.x_advance <= remaining then best_idx = mid; low = mid + 1 else high = mid - 1 end
+                    local w = GLOBAL_TEXT_EXTENTS.x_advance
+                    
+                    if w <= remaining then 
+                        best_idx = mid
+                        best_width = w -- <--- Zapamiętujemy, żeby nie mierzyć znowu
+                        low = mid + 1 
+                    else 
+                        high = mid - 1 
+                    end
                 end
+                
                 if best_idx > 0 then
-                    table.insert(new_chunks, {type="text", txt=utf8_sub(sub, 1, best_idx)})
+                    table.insert(new_chunks, {
+                        type="text", 
+                        txt=utf8_sub(sub, 1, best_idx), 
+                        width=best_width -- Przypisujemy zmierzoną szerokość
+                    })
                 end
             
             elseif chunk.type == "symbol" then
-                -- Tniemy symbole (Iteracja co 3 bajty)
+                -- Tniemy symbole
                 local sub = chunk.txt
                 for k = #sub, 3, -3 do
                     local try_sub = sub:sub(1, k)
                     cairo_text_extents(cr, try_sub, GLOBAL_TEXT_EXTENTS)
-                    if GLOBAL_TEXT_EXTENTS.x_advance <= remaining then
-                        table.insert(new_chunks, {type="symbol", txt=try_sub})
+                    local w = GLOBAL_TEXT_EXTENTS.x_advance
+                    
+                    if w <= remaining then
+                        table.insert(new_chunks, {
+                            type="symbol", 
+                            txt=try_sub,
+                            width=w -- Przypisujemy zmierzoną szerokość
+                        })
                         break
                     end
                 end
@@ -1198,14 +1262,27 @@ local function trim_line_to_width_emoji(cr, text, max_width, font_name, font_siz
             
             -- Doklej kropki
             local last = new_chunks[#new_chunks]
+            
+            -- Jeśli ostatni element to tekst, doklejamy kropki do niego
             if last and last.type == "text" then 
                 last.txt = last.txt .. ellipsis
+                -- Musimy przeliczyć szerokość połączenia (tekst + kropki)
+                -- Font dla typu "text" jest ustawiony wyżej (set_font na początku bloku cięcia)
+                set_font(cr, font_name, font_size, font_bold) 
+                cairo_text_extents(cr, last.txt, GLOBAL_TEXT_EXTENTS)
+                last.width = GLOBAL_TEXT_EXTENTS.x_advance
             else 
-                table.insert(new_chunks, {type="text", txt=ellipsis}) 
+                -- Jeśli ostatni to symbol/emoji (lub pusto), dodajemy kropki jako nowy chunk
+                table.insert(new_chunks, {
+                    type="text", 
+                    txt=ellipsis, 
+                    width=ellipsis_w 
+                }) 
             end
             break
         end
     end
+    
     TRIM_CACHE[cache_key] = new_chunks
     return new_chunks
 end
@@ -1247,6 +1324,24 @@ local function save_mail_ids_to_file(ids)
         file:write(json.encode(ids_to_save))
         file:close()
     end
+end
+
+-- Funkcja pobierająca pełne chunki i szerokość z cache (lub licząca je raz)
+local function get_cached_preview_data(cr, text, font_name, font_size, font_bold)
+    local key = text .. "|" .. font_name .. "|" .. font_size .. "|" .. tostring(font_bold)
+    
+    if PREVIEW_FULL_CACHE[key] then
+        return PREVIEW_FULL_CACHE[key].chunks, PREVIEW_FULL_CACHE[key].width
+    end
+    
+    -- Jeśli nie ma w cache, policz (to się stanie tylko raz na maila!)
+    local chunks = split_emoji(text)
+    local width = get_chunks_width(cr, chunks, font_name, font_size, font_bold)
+    
+    -- Zapisz w cache
+    PREVIEW_FULL_CACHE[key] = { chunks = chunks, width = width }
+    
+    return chunks, width
 end
 
 -- ———————— GŁÓWNA FUNKCJA RYSUJĄCA ————————
@@ -2100,9 +2195,11 @@ if ENABLE_NEW_MAIL_PULSE then
                 
                 cairo_set_font_size(cr, SUBJECT_FONT_SIZE)
                 
-                -- 2. POMIAR (Najpierw mierzymy!)
-                cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS)
-                local chunk_advance = GLOBAL_TEXT_EXTENTS.x_advance
+				-- 2. POMIAR (Używamy cache!)
+                -- cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS) -- USUNIĘTE
+                local chunk_advance = chunk.width or 0                    -- DODANE
+                
+                -- 3. RYSOWANIE
                 
                 -- 3. RYSOWANIE
                 cairo_move_to(cr, cursor_x, mail_y)
@@ -2122,8 +2219,8 @@ if ENABLE_NEW_MAIL_PULSE then
                 local preview_end_x_stat = konta_end_x + PREVIEW_EXTRA_SPACE
                 local scroll_area_stat = preview_end_x_stat - preview_start_x
                 cairo_save(cr)
-                local preview_chunks_full = split_emoji(preview_txt)
-                local preview_chunks_width = get_chunks_width(cr, preview_chunks_full, PREVIEW_FONT_NAME, PREVIEW_FONT_SIZE, PREVIEW_FONT_BOLD)
+               -- Używamy nowej funkcji z cache:
+				local preview_chunks_full, preview_chunks_width = get_cached_preview_data(cr, preview_txt, PREVIEW_FONT_NAME, PREVIEW_FONT_SIZE, PREVIEW_FONT_BOLD)
                 local emoji_clip_pad = s(4)
                 if ENABLE_PREVIEW_SCROLL and preview_chunks_width > scroll_area_stat then
                     cairo_rectangle(cr, preview_start_x - emoji_clip_pad, preview_y - PREVIEW_FONT_SIZE, scroll_area_stat + emoji_clip_pad * 2, PREVIEW_FONT_SIZE + s(8))
@@ -2140,12 +2237,11 @@ if ENABLE_NEW_MAIL_PULSE then
                             if c.type == "emoji" then cairo_select_font_face(cr, "Noto Color Emoji", CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
                             elseif c.type == "symbol" then cairo_select_font_face(cr, SYMBOL_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
                             else cairo_select_font_face(cr, PREVIEW_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL) end
-                            cairo_set_font_size(cr, PREVIEW_FONT_SIZE)
-                            
-                            cairo_text_extents(cr, c.txt, GLOBAL_TEXT_EXTENTS)
-                            local adv = GLOBAL_TEXT_EXTENTS.x_advance
-                            
-                            cairo_move_to(cr, cursor_x2, preview_y)
+						cairo_set_font_size(cr, PREVIEW_FONT_SIZE)
+                        
+                        local adv = c.width or 0                              -- DODANE
+                        
+                        cairo_move_to(cr, cursor_x2, preview_y)
                             cairo_show_text(cr, c.txt)
                             
                             cursor_x2 = cursor_x2 + adv
@@ -2165,8 +2261,7 @@ if ENABLE_NEW_MAIL_PULSE then
                         else cairo_select_font_face(cr, PREVIEW_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL) end
                         cairo_set_font_size(cr, PREVIEW_FONT_SIZE)
                         
-                        cairo_text_extents(cr, c.txt, GLOBAL_TEXT_EXTENTS)
-                        local adv = GLOBAL_TEXT_EXTENTS.x_advance
+						local adv = c.width or 0 
                         
                         cairo_move_to(cr, cursor_x2, preview_y)
                         cairo_show_text(cr, c.txt)
@@ -2231,11 +2326,11 @@ if ENABLE_NEW_MAIL_PULSE then
                     cairo_select_font_face(cr, SUBJECT_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, SUBJECT_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL)
                 end
                 
-                cairo_set_font_size(cr, SUBJECT_FONT_SIZE)
+				cairo_set_font_size(cr, SUBJECT_FONT_SIZE)
                 cairo_show_text(cr, chunk.txt)
                 
-                cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS)
-                cursor = cursor + GLOBAL_TEXT_EXTENTS.x_advance
+                -- cairo_text_extents(cr, chunk.txt, GLOBAL_TEXT_EXTENTS) -- USUNIĘTE
+                cursor = cursor + (chunk.width or 0)                      -- DODANE
             end
 
 			-- ———————— Rysowanie podglądu (Preview) dla układu standardowego ————————
@@ -2244,8 +2339,8 @@ if ENABLE_NEW_MAIL_PULSE then
                 set_color(cr, PREVIEW_COLOR_TYPE, PREVIEW_COLOR_CUSTOM)
                 set_font(cr, PREVIEW_FONT_NAME, PREVIEW_FONT_SIZE, PREVIEW_FONT_BOLD)
                 local preview_txt = mail.preview or ""
-                local preview_chunks_full = split_emoji(preview_txt)
-                local preview_chunks_width = get_chunks_width(cr, preview_chunks_full, PREVIEW_FONT_NAME, PREVIEW_FONT_SIZE, PREVIEW_FONT_BOLD)
+				-- Używamy nowej funkcji z cache:
+				local preview_chunks_full, preview_chunks_width = get_cached_preview_data(cr, preview_txt, PREVIEW_FONT_NAME, PREVIEW_FONT_SIZE, PREVIEW_FONT_BOLD)
                 
                 -- === POPRAWKA 2: Dynamiczne obliczanie obszaru przewijania/przycinania ===
                 -- ZMODYFIKOWANE: Start podglądu uwzględnia avatar
@@ -2280,8 +2375,7 @@ if ENABLE_NEW_MAIL_PULSE then
                             cairo_set_font_size(cr, PREVIEW_FONT_SIZE)
                             cairo_move_to(cr, cursor_x, preview_y)
                             cairo_show_text(cr, c.txt)
-                            cairo_text_extents(cr, c.txt, GLOBAL_TEXT_EXTENTS)
-                            cursor_x = cursor_x + GLOBAL_TEXT_EXTENTS.x_advance
+                            cursor_x = cursor_x + (c.width or 0)
                         end
                     end
                 else
@@ -2304,13 +2398,12 @@ if ENABLE_NEW_MAIL_PULSE then
                             cairo_select_font_face(cr, PREVIEW_FONT_NAME, CAIRO_FONT_SLANT_NORMAL, PREVIEW_FONT_BOLD and CAIRO_FONT_WEIGHT_BOLD or CAIRO_FONT_WEIGHT_NORMAL) 
                         end
                         
-                        cairo_set_font_size(cr, PREVIEW_FONT_SIZE)
+						cairo_set_font_size(cr, PREVIEW_FONT_SIZE)
                         cairo_move_to(cr, current_x, preview_y)
                         cairo_show_text(cr, c.txt)
                         
-                        -- Przesuwamy kursor o faktyczną szerokość narysowanego znaku
-                        cairo_text_extents(cr, c.txt, GLOBAL_TEXT_EXTENTS)
-                        current_x = current_x + GLOBAL_TEXT_EXTENTS.x_advance
+                        -- Przesuwamy kursor (z cache)
+                        current_x = current_x + (c.width or 0)                -- DODANE
                     end
                 end
                 cairo_restore(cr)
@@ -2336,6 +2429,15 @@ if ids_have_changed then
         -- Skoro przyszły nowe maile, czyścimy cache tekstów, żeby zwolnić pamięć
         TRIM_CACHE = {} 
         WIDTH_CACHE = {}
+		PREVIEW_FULL_CACHE = {}
+
+	-- === DODAJ TO: ===
+    -- Musimy zwolnić surface'y Cairo, żeby nie było wycieku pamięci w RAM!
+    for _, surf in pairs(AVATAR_SURFACE_CACHE) do
+        cairo_surface_destroy(surf)
+    end
+    AVATAR_SURFACE_CACHE = {} 
+    -- =================
     end
 end
 

@@ -1,10 +1,9 @@
 #!/bin/bash
-# 3.CLI_START_RESTART_skryptów_oraz_conky.sh (v5.2-cli-nuclear-fix)
+# 3.CLI_START_RESTART_skryptów_oraz_conky.sh (v5.3-cli-absolute-paths)
 # - Przystosowano do uruchamiania z podkatalogu 'CLI'.
-# - Skrypt zmienia katalog roboczy na ROOT projektu.
-# - Kod sformatowany w stylu "verbose" dla maksymalnej czytelności.
-# - POPRAWKA: Atomowe zamykanie (szybki kill conky, grzeczny kill pythona).
-# - POPRAWKA: Czyste logi (użycie disown).
+# - Używa ŚCIEŻEK BEZWZGLĘDNYCH dla bibliotek i venv (Fix błędu pip install).
+# - Auto-Healing (naprawa venv po przeniesieniu).
+# - Instalacja Offline z folderu lib (priorytet).
 
 # --- DETEKCJA I URUCHOMIENIE W TERMINALU (gdy kliknięty z GUI) ---
 if [ ! -t 0 ]
@@ -59,16 +58,24 @@ then
     exit 0
 fi
 
-# --- USTAWIENIE KATALOGU ROBOCZEGO NA GŁÓWNY PROJEKT ---
+# --- USTAWIENIE KATALOGÓW I ŚCIEŻEK BEZWZGLĘDNYCH ---
 SCRIPT_PATH=$(readlink -f "${BASH_SOURCE[0]}")
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
-# Przechodzimy jeden poziom wyżej - do głównego katalogu projektu
+
+# PROJECT_DIR = Folder nadrzędny względem CLI (czyli główny folder projektu)
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
+# Przechodzimy do głównego katalogu projektu
 cd "$PROJECT_DIR" || {
     echo "Błąd: Nie można przejść do katalogu projektu: $PROJECT_DIR"
     exit 1
 }
+
+# Definicje ścieżek ABSOLUTNYCH (kluczowe dla pip i venv)
+LIBS_DIR="$PROJECT_DIR/lib"
+VENV_DIR="$PROJECT_DIR/py/venv"
+PYTHON_SCRIPT="$PROJECT_DIR/py/ZupixPyMail.py"
+CACHE_DIR="/dev/shm/Zupix-Py2Lua-Mail-conky"
 
 # --- BIBLIOTEKA FUNKCJI CLI ---
 C_RESET='\033[0m'
@@ -143,12 +150,9 @@ then
     echo -e "\033[1;33mTryb debugowania włączony. Logowanie RAM i generowanie pliku .health przez Pythona będzie aktywne.\033[0m"
 fi
 
-# --- ZMIENNE GLOBALNE ---
-# Ścieżki względne są teraz poprawne, bo jesteśmy w PROJECT_DIR
-CACHE_DIR="/dev/shm/Zupix-Py2Lua-Mail-conky"
+# --- ZMIENNE GLOBALNE (cd.) ---
 LOCK_FILE="$CACHE_DIR/loop_script.lock"
 CONKY_CONF="conkyrc_zupix"
-PYTHON_SCRIPT="./py/ZupixPyMail.py"
 MAIL_CACHE="$CACHE_DIR/mail_cache.json"
 MAX_WAIT=60
 CONKY_PID_FILE="$CACHE_DIR/conky.pid"
@@ -335,11 +339,73 @@ echo $! > "$RAM_PID_FILE"
 disown $! # FIX: Ukryj komunikat "Unicestwiony" w terminalu
 
 # --- URUCHOMIENIE PYTHON BACKEND ---
-VENV_DIR="./py/venv"
-if [ ! -d "$VENV_DIR" ]
-then
-    notify-send "❗ Brak venv" "Nie znaleziono $VENV_DIR."
-    log_error "Nie znaleziono środowiska Python venv w '$VENV_DIR'."
+
+# ==============================================================================
+#  Obsługa środowiska venv (AUTO-HEALING / SMART PORTABLE)
+# ==============================================================================
+
+REBUILD_VENV=0
+VENV_PYTHON="$VENV_DIR/bin/python3"
+VENV_PIP="$VENV_DIR/bin/pip"
+ACTIVATE_SCRIPT="$VENV_DIR/bin/activate"
+
+# 1. Sprawdź czy folder venv w ogóle istnieje
+if [ ! -d "$VENV_DIR" ]; then
+    REBUILD_VENV=1
+elif [ ! -f "$ACTIVATE_SCRIPT" ]; then
+    # Brak pliku activate - uszkodzony venv
+    REBUILD_VENV=1
+else
+    # 2. Porównanie fizycznych ścieżek zamiast tekstowych
+    # (Fix dla problemów z symlinkami i relatywnymi ścieżkami)
+    STORED_VENV_PATH=$(unset VIRTUAL_ENV; source "$ACTIVATE_SCRIPT"; echo "$VIRTUAL_ENV")
+    REAL_CURRENT=$(readlink -f "$VENV_DIR")
+    REAL_STORED=$(readlink -f "$STORED_VENV_PATH")
+    
+    if [ "$REAL_CURRENT" != "$REAL_STORED" ]; then
+        log_warn "Wykryto zmianę lokalizacji projektu. Naprawiam..."
+        REBUILD_VENV=1
+    else
+        # 3. Dodatkowy test: Czy biblioteki są faktycznie widoczne
+        if ! "$VENV_PYTHON" -c "import imapclient; import bs4" >/dev/null 2>&1; then
+            log_warn "Brak wymaganych bibliotek w venv. Naprawiam..."
+            REBUILD_VENV=1
+        fi
+    fi
+fi
+
+if [ "$REBUILD_VENV" -eq 1 ]; then
+    notify-send "🛠️ Naprawa venv" "Konfiguruję środowisko..."
+    log_info "Wykryto zmianę lokalizacji lub brak środowiska. Konfiguruję..."
+    
+    # Usuń stary/uszkodzony venv
+    rm -rf "$VENV_DIR"
+    
+    # Utwórz nowy venv
+    if ! python3 -m venv "$VENV_DIR"; then
+        log_error "Nie udało się utworzyć środowiska Python venv! Upewnij się, że masz zainstalowany pakiet python3-venv."
+    fi
+    
+    # Instalacja bibliotek
+    if [ -d "$LIBS_DIR" ]; then
+        # Opcja OFFLINE - z folderu lib (ścieżka bezwzględna)
+        log_info "Instaluję biblioteki z lokalnego folderu lib..."
+        
+        # Używamy "$VENV_PIP" (bezwzględna ścieżka do pip w venv)
+        # --no-index: nie szukaj w sieci
+        # --find-links: szukaj tutaj (ścieżka bezwzględna)
+        if ! "$VENV_PIP" install --no-index --find-links="$LIBS_DIR" imapclient beautifulsoup4 >/dev/null 2>&1; then
+             log_error "Błąd instalacji bibliotek z folderu localnego 'lib' ($LIBS_DIR)!"
+        fi
+    else
+        # Fallback - jeśli brak folderu lib
+        log_info "Brak folderu lib. Pobieram biblioteki z internetu..."
+        if ! "$VENV_PIP" install imapclient beautifulsoup4 >/dev/null 2>&1; then
+             log_error "Błąd pobierania bibliotek z internetu."
+        fi
+    fi
+    
+    log_success "Środowisko Python zostało zaktualizowane."
 fi
 
 log_info "Aktywuję środowisko Python venv..."
@@ -347,9 +413,11 @@ notify-send "🐍 Virtualenv" "Aktywuję środowisko Python venv..."
 
 log_success "Uruchamiam backend Pythona..."
 
-# Uruchamiamy Pythona w podpowłoce, aby aktywować venv tylko tam
+# Używamy ścieżki bezwzględnej dla activate
+source "$VENV_DIR/bin/activate"
+
+# Uruchamiamy Pythona w podpowłoce
 (
-    source "$VENV_DIR/bin/activate"
     python3 -u "$PYTHON_SCRIPT" $PYTHON_ARGS
 ) &
 

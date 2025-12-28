@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==========================================================
-#     3.Konfigurator_kont.sh — Ultimate v2 (poprawka koloru)
+#     3.Konfigurator_kont.sh — Ultimate v2.3 (Delete All)
 # ==========================================================
 
 # Przejdź do katalogu, w którym znajduje się skrypt
@@ -50,10 +50,7 @@ hex_to_lua_rgb() {
     LC_NUMERIC=C awk -v R="$r" -v G="$g" -v B="$b" 'BEGIN{printf "{%.2f, %.2f, %.2f}", R/255, G/255, B/255}'
 }
 
-# --- Nowe: robust parser dla outputu z zenity --color-selection
-#   - przyjmuje hex (#RRGGBB lub #RGB), rgb(...), rgba(...), GdkRGBA(...)
-#   - przyjmuje liczby w zakresie 0..1 lub 0..255
-#   - zwraca HEX #RRGGBB (wielkie lub małe litery działają tak samo dalej)
+# --- Parser dla outputu z zenity --color-selection ---
 parse_zenity_color_to_hex() {
     local raw="$1"
     # usuń białe znaki
@@ -75,27 +72,20 @@ parse_zenity_color_to_hex() {
         local inside="${BASH_REMATCH[1]}"
         # rozbijmy po przecinkach
         IFS=',' read -r c1 c2 c3 c4 <<< "$inside"
-        # jeśli któreś puste -> fallback
         if [ -z "${c1:-}" ] || [ -z "${c2:-}" ] || [ -z "${c3:-}" ]; then
-            # spróbuj wyciągnąć liczby dowolnie z tekstu
             :
         else
-            # funkcja konwertująca pojedynczą składową do 0..255 integer
             to_255() {
                 local v="$1"
-                # usuń wszystko oprócz cyfr i kropki/znaku minus
                 v="$(printf "%s" "$v" | sed 's/[^0-9.\-]//g')"
                 if [[ "$v" == *.* ]]; then
-                    # float: jeśli <=1 to traktujemy jako 0..1 -> *255, inaczej traktujemy jako 0..255
                     awk -v x="$v" 'BEGIN{ if(x<=1){printf "%d", x*255 + 0.5} else {printf "%d", x + 0.5} }'
                 else
-                    # integer
                     printf "%d" "$v" 2>/dev/null || echo 0
                 fi
             }
             local r g b
             r=$(to_255 "$c1"); g=$(to_255 "$c2"); b=$(to_255 "$c3")
-            # clamp 0..255
             for var in r g b; do
                 val="$(eval echo \$$var)"
                 if [ -z "$val" ]; then val=0; fi
@@ -108,11 +98,10 @@ parse_zenity_color_to_hex() {
         fi
     fi
 
-    # 3) fallback: wyciągnij pierwsze trzy liczby z tekstu (np. "255 0 0" lub "1.0 0 0")
+    # 3) fallback: wyciągnij pierwsze trzy liczby z tekstu
     nums="$(printf "%s" "$raw" | grep -oE '[0-9]+(\.[0-9]+)?' | tr '\n' ' ' )"
     read -r n1 n2 n3 _ <<< "$nums"
     if [ -n "$n1" ] && [ -n "$n2" ] && [ -n "$n3" ]; then
-        # konwersja jak wyżej
         conv() {
             local v="$1"
             if [[ "$v" == *.* ]]; then
@@ -133,7 +122,6 @@ parse_zenity_color_to_hex() {
         return
     fi
 
-    # nic nie znaleziono -> zwróć pusty (oznacza "anulowano"/nieobsługiwany format)
     echo ""
 }
 
@@ -287,10 +275,34 @@ move_line_in_block_perl() {
     return 0
 }
 
+empty_block_perl() {
+    local file="$1"; local start_regex="$2"
+    local tmp
+    tmp=$(mktemp) || return 1
+    perl -e '
+    use strict; use warnings;
+    my ($file,$start)=@ARGV;
+    open my $in, "<", $file or die $!;
+    my @lines = <$in>;
+    close $in;
+    for (my $i = 0; $i < @lines; $i++) {
+        if ($lines[$i] =~ /$start/) {
+            for (my $j = $i + 1; $j < @lines; $j++) {
+                if ($lines[$j] =~ /^\s*},?\s*$/) {
+                    splice(@lines, $i + 1, $j - ($i + 1));
+                    last;
+                }
+            }
+            last;
+        }
+    }
+    print @lines;
+    ' "$file" "$start_regex" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 2; }
+    mv "$tmp" "$file"
+    return 0
+}
+
 save_accounts_array() {
-    # Bezpieczniejszy zapis:
-    # 1. Wypisuje elementy tablicy (które są już poprawnymi obiektami JSON w jednej linii).
-    # 2. Przekazuje je do 'jq -s' (slurp), który automatycznie i bezpiecznie tworzy z nich poprawną tablicę JSON [ ... ].
     if [ ${#accounts_array[@]} -eq 0 ]; then
         echo "[]" > "$ACCOUNTS_JSON"
     else
@@ -314,30 +326,23 @@ while true; do
         ACCOUNTS_LIST+=("$i" "Konto $((i+1)): $name ($login)")
     done
 
-    ACCOUNTS_LIST+=("add" "➕ Dodaj nowe konto" "exit" "❌ Zakończ")
+    # Modyfikacja listy opcji: import + usuń wszystko
+    ACCOUNTS_LIST+=("add" "➕ Dodaj nowe konto" "import" "📂 Importuj z pliku JSON" "delete_all" "🗑️ Usuń wszystkie konta" "exit" "❌ Zakończ")
 
     CHOICE=$(zenity --list --hide-column=1 --width=700 --height=460 \
         --title="Konfigurator Kont E-mail" \
-        --text="Wybierz konto lub dodaj nowe." \
+        --text="Wybierz konto, dodaj nowe lub zarządzaj listą." \
         --column="ID" --column="Opis" "${ACCOUNTS_LIST[@]}")
 
     [ -z "${CHOICE:-}" ] && break
 
     case "$CHOICE" in
         "exit")
-            # <<< MODYFIKACJA START >>>
-            # Sprawdź, czy plik flagi nie istnieje
             if [ ! -f "$QUESTION_FLAG" ]; then
-                # Jeśli nie istnieje, zadaj pytanie
                 if zenity --question --text="Czy chcesz uruchomić skrypt 3.START_RESTART_skryptów_oraz_conky.sh, który uruchomi widget?"; then
-                    # Jeśli użytkownik kliknie "Tak", utwórz plik flagi
-                    # Upewnij się, że katalog 'config' istnieje
                     mkdir -p "$(dirname "$QUESTION_FLAG")"
                     touch "$QUESTION_FLAG"
-
-                    # Sprawdź, czy skrypt docelowy istnieje i jest wykonywalny
                     if [ -f "$START_SCRIPT" ] && [ -x "$START_SCRIPT" ]; then
-                        # Uruchom skrypt w tle
                         "$START_SCRIPT" &
                         zenity --info --text="Uruchomiono skrypt startowy."
                     else
@@ -345,9 +350,100 @@ while true; do
                     fi
                 fi
             fi
-            # Niezależnie od odpowiedzi (lub jeśli plik flagi już istnieje), zakończ pętlę
             break
-            # <<< MODYFIKACJA KONIEC >>>
+            ;;
+        "delete_all")
+            # --- SEKCJA KASOWANIA WSZYSTKIEGO START ---
+            if ! zenity --question --width=400 --icon-name="dialog-warning" \
+                --title="UWAGA: Destrukcyjna operacja" \
+                --text="<span size='large' weight='bold' color='red'>Czy na pewno chcesz usunąć WSZYSTKIE konta?</span>\n\nZostaną wyczyszczone:\n1. Plik accounts.json\n2. Tablice w pliku e-mail.lua\n\nTej operacji nie można cofnąć (chyba że z backupu)."; then
+                continue
+            fi
+
+            backup_configs
+
+            # 1. Wyczyść plik JSON
+            echo "[]" > "$ACCOUNTS_JSON"
+            
+            # 2. Wyczyść tablice w Lua
+            empty_block_perl "$EMAIL_LUA" '^ACCOUNT_COLORS = {'
+            empty_block_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = {'
+            empty_block_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = {'
+
+            # 3. Zresetuj wewnętrzną tablicę
+            accounts_array=()
+
+            zenity --info --text="Wszystkie konta zostały usunięte.\nKonfiguracja jest czysta."
+            # --- SEKCJA KASOWANIA WSZYSTKIEGO KONIEC ---
+            ;;
+        "import")
+            # --- SEKCJA IMPORTU START ---
+            IMPORT_FILE=$(zenity --file-selection --title="Wybierz plik accounts.json do importu" --file-filter="*.json")
+            
+            [ -z "$IMPORT_FILE" ] && continue
+            
+            if ! jq -e . "$IMPORT_FILE" &>/dev/null; then
+                zenity --error --text="Wskazany plik nie jest poprawnym formatem JSON."
+                continue
+            fi
+
+            if ! zenity --question --text="Czy chcesz zaimportować konta z pliku:\n$IMPORT_FILE\n\nKonta o istniejących nazwach zostaną pominięte.\n\nZa chwilę zostaniesz poproszony o wybór koloru dla każdego nowego konta."; then
+                continue
+            fi
+
+            backup_configs
+            
+            mapfile -t imported_items < <(jq -c '.[]' "$IMPORT_FILE" 2>/dev/null || true)
+            
+            added_count=0
+            skipped_count=0
+            
+            for json_item in "${imported_items[@]}"; do
+                imp_name=$(echo "$json_item" | jq -r '.name')
+                imp_login=$(echo "$json_item" | jq -r '.login')
+                
+                if [ -z "$imp_name" ] || [ "$imp_name" == "null" ] || [ -z "$imp_login" ] || [ "$imp_login" == "null" ]; then
+                    continue
+                fi
+
+                exists=0
+                for existing_item in "${accounts_array[@]}"; do
+                    ex_name=$(echo "$existing_item" | jq -r '.name')
+                    if [ "$ex_name" == "$imp_name" ]; then
+                        exists=1
+                        break
+                    fi
+                done
+                
+                if [ "$exists" -eq 1 ]; then
+                    skipped_count=$((skipped_count + 1))
+                    continue
+                fi
+                
+                COLOR_RAW=$(zenity --color-selection --show-palette \
+                    --title="Import: Wybierz kolor dla konta '$imp_name'" \
+                    --color="#FFFFFF" 2>/dev/null || true)
+                
+                COLOR_HEX="$(parse_zenity_color_to_hex "$COLOR_RAW")"
+                [ -z "$COLOR_HEX" ] && COLOR_HEX="#FFFFFF"
+
+                new_color_lua=$(hex_to_lua_rgb "$COLOR_HEX")
+                
+                lua_color_line="    [\"$imp_name\"] = $new_color_lua,"
+                lua_name_line="    \"$imp_login\","
+                lua_key_line="    \"$imp_name\","
+
+                insert_before_block_end_perl "$EMAIL_LUA" '^ACCOUNT_COLORS = {' "$lua_color_line"
+                insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = {' "$lua_name_line"
+                insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = {' "$lua_key_line"
+                
+                accounts_array+=("$json_item")
+                added_count=$((added_count + 1))
+            done
+            
+            save_accounts_array
+            
+            zenity --info --text="Operacja zakończona.\n\nZaimportowano: $added_count\nPominięto (duplikaty): $skipped_count"
             ;;
         "add")
             NEW_DATA=$(zenity --forms --title="Dodaj nowe konto" \
@@ -381,10 +477,8 @@ while true; do
                 continue
             fi
 
-            # wybor koloru (robust parsing)
             COLOR_RAW=$(zenity --color-selection --show-palette --title="Wybierz kolor konta" --color="#FFFFFF" 2>/dev/null || true)
             COLOR_HEX="$(parse_zenity_color_to_hex "$COLOR_RAW")"
-            # jeśli COLOR_HEX jest pusty -> anulowano lub nie udało się sparsować -> domyślny biały
             [ -z "$COLOR_HEX" ] && COLOR_HEX="#FFFFFF"
 
             new_color_lua=$(hex_to_lua_rgb "$COLOR_HEX")
@@ -408,19 +502,15 @@ while true; do
                 continue
             fi
             
-            # <<< MODYFIKACJA START >>>
             if [ "$new_encryption" = "starttls" ]; then
-                # Jeśli wybrano starttls, dodaj pole verify_cert: false
                 new_account_json=$(jq -n --arg n "$new_name" --arg h "$new_host" --argjson p "$new_port" \
                     --arg l "$new_login" --arg pass "$new_password" --arg enc "$new_encryption" --argjson vc false \
                     '{name: $n, host: $h, port: $p, login: $l, password: $pass, encryption: $enc, verify_cert: $vc}')
             else
-                # W przeciwnym razie stwórz JSON bez pola verify_cert
                 new_account_json=$(jq -n --arg n "$new_name" --arg h "$new_host" --argjson p "$new_port" \
                     --arg l "$new_login" --arg pass "$new_password" --arg enc "$new_encryption" \
                     '{name: $n, host: $h, port: $p, login: $l, password: $pass, encryption: $enc}')
             fi
-            # <<< MODYFIKACJA KONIEC >>>
 
             accounts_array+=("$new_account_json")
             save_accounts_array
@@ -446,10 +536,8 @@ while true; do
                     port=$(echo "$original_json" | jq -r '.port')
                     login=$(echo "$original_json" | jq -r '.login')
                     password=$(echo "$original_json" | jq -r '.password')
-                    # Wczytaj obecne szyfrowanie lub ustaw 'ssl' jako domyślne dla starych wpisów
                     encryption=$(echo "$original_json" | jq -r '.encryption // "ssl"')
 
-                    # Ustaw kolejność w combo-boxie, aby obecna wartość była domyślna
                     if [ "$encryption" = "starttls" ]; then
                         combo_values="starttls|ssl"
                     else
@@ -469,7 +557,7 @@ while true; do
                         if [[ ! "$new_port" =~ ^[0-9]+$ ]]; then
                             zenity --error --text="Błąd: Port musi być liczbą."
                             name="$new_name"; host="$new_host"; port="$new_port"; login="$new_login"; password="$new_password"
-                            encryption="$new_encryption" # zapamiętaj, by nie resetować
+                            encryption="$new_encryption"
                             continue
                         else
                             break
@@ -477,7 +565,6 @@ while true; do
                     done
 
                     if [ -n "${NEW_DATA:-}" ]; then
-                        # kolor (picker). Jeśli anulowany -> nie zmieniamy koloru
                         COLOR_RAW=$(zenity --color-selection --show-palette --title="Zmień kolor konta (anuluj = zachowaj stary)" --color="#FFFFFF" 2>/dev/null || true)
                         COLOR_HEX="$(parse_zenity_color_to_hex "$COLOR_RAW")"
                         picked_new_color=0
@@ -497,38 +584,29 @@ while true; do
 
                         backup_configs
 
-                        # jeśli użytkownik wybrał nowy kolor => usuń starą linię i wstaw nową
                         if [ "$picked_new_color" -eq 1 ]; then
                             delete_line_in_block_literal_perl "$EMAIL_LUA" '^ACCOUNT_COLORS = {' "[\"$name_to_manage\"]"
                             new_color_line="    [\"$new_name\"] = $new_color_lua,"
                             insert_before_block_end_perl "$EMAIL_LUA" '^ACCOUNT_COLORS = {' "$new_color_line"
                         else
-                            # nie zmieniamy wartości koloru, ale jeśli nazwa klucza się zmieniła -> zamień klucz w bloku ACCOUNT_COLORS
                             if [ "$new_name" != "$name_to_manage" ]; then
                                 replace_in_block_literal_perl "$EMAIL_LUA" '^ACCOUNT_COLORS = {' "[\"$name_to_manage\"]" "[\"$new_name\"]"
                             fi
                         fi
 
-                        # zaktualizuj ACCOUNT_NAMES i ACCOUNT_KEYS (zmiana loginów/kluczy)
                         replace_in_block_literal_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = {' "\"$login_to_manage\"" "\"$new_login\""
                         replace_in_block_literal_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = {' "\"$name_to_manage\"" "\"$new_name\""
                         
-                        # <<< MODYFIKACJA START >>>
-                        # Przygotuj bazę JSON-a
                         base_json=$(jq -n \
                             --arg n "$new_name" --arg h "$new_host" --argjson p "$new_port" \
                             --arg l "$new_login" --arg pass "$new_password" --arg enc "$new_encryption" \
                             '{name: $n, host: $h, port: $p, login: $l, password: $pass, encryption: $enc}')
 
                         if [ "$new_encryption" = "starttls" ]; then
-                            # Jeśli wybrano starttls, dodaj pole verify_cert: false
                             updated_json=$(echo "$base_json" | jq '. + {verify_cert: false}')
                         else
-                            # W przeciwnym razie upewnij się, że pole verify_cert jest usunięte (jeśli istniało)
-                            # W tym przypadku base_json jest już kompletny, bo nie ma tego pola
                             updated_json="$base_json"
                         fi
-                        # <<< MODYFIKACJA KONIEC >>>
 
                         accounts_array[$CHOICE]="$updated_json"
                         save_accounts_array
@@ -551,16 +629,13 @@ while true; do
                     fi
                     ;;
                 "Przesuń")
-                    # wybierz kierunek
                     DIR=$(zenity --list --radiolist --title="Przesuń konto: $name_to_manage" \
                         --column="" --column="Kierunek" \
                         TRUE "Góra" FALSE "Dół")
                     [ -z "${DIR:-}" ] && continue
                     if [ "$DIR" = "Góra" ]; then dir="up"; else dir="down"; fi
 
-                    # indeks wybranego konta w accounts_array to CHOICE
                     idx="$CHOICE"
-                    # oblicz docelowy indeks
                     if [ "$dir" = "up" ]; then
                         if [ "$idx" -eq 0 ]; then
                             zenity --warning --text="To konto jest już na górze; nie można przesunąć wyżej."
@@ -575,19 +650,14 @@ while true; do
                         target_idx=$((idx + 1))
                     fi
 
-                    # zamień kolejność w tablicy accounts_array
                     tmp="${accounts_array[$target_idx]}"
                     accounts_array[$target_idx]="${accounts_array[$idx]}"
                     accounts_array[$idx]="$tmp"
                     save_accounts_array
 
-                    # teraz wykonaj swap linii w e-mail.lua w trzech blokach
                     backup_configs
-                    # ACCOUNT_COLORS: match literal ["name"]
                     move_line_in_block_perl "$EMAIL_LUA" '^ACCOUNT_COLORS = {' "[\"$name_to_manage\"]" "$dir"
-                    # ACCOUNT_NAMES: match literal "login"
                     move_line_in_block_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = {' "\"$login_to_manage\"" "$dir"
-                    # ACCOUNT_KEYS: match literal "name"
                     move_line_in_block_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = {' "\"$name_to_manage\"" "$dir"
 
                     zenity --info --text="Konto '$name_to_manage' zostało przesunięte $DIR."

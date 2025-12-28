@@ -6,6 +6,10 @@
 #   jeśli repozytorium nadal jest wyłączone po pierwszej próbie.
 # - Zachowano poprawkę crasha om-repo-picker.
 
+# ZMIANY v3.0.0
+# - Dodano instalowanie bibliotek python offline, aby zapobiec niespodzianek w nowych niesprawdoznych wersjach.
+# - 
+
 # --- DETEKCJA I URUCHOMIENIE W TERMINALU (gdy kliknięty z GUI) ---
 if [ ! -t 0 ]
 then
@@ -76,6 +80,7 @@ DKJSON_LOCAL="$WIDGET_DIR/dkjson.lua"
 SOUND_FOLDER="$PROJECT_DIR/sound"
 START_SOUND="$SOUND_FOLDER/start_notification_1.wav"
 VENV_DIR="$PROJECT_DIR/py/venv"
+LIBS_DIR="$PROJECT_DIR/lib"
 
 # --- BIBLIOTEKA FUNKCJI CLI ---
 # Kolory
@@ -941,18 +946,35 @@ fi
 
 PY="$VENV_DIR/bin/python"
 
-log_info "Aktualizuję pip w venv..."
-# Próba 1: standardowa aktualizacja pip
-if ! "$PY" -m pip install --upgrade pip -q --disable-pip-version-check >/dev/null 2>&1; then
-    # Próba 2: doinstaluj pip przez ensurepip (czasem na Debianie/MX pip w venv nie jest wgrany)
-    "$PY" -m ensurepip --upgrade >/dev/null 2>&1 || true
-    "$PY" -m pip install --upgrade pip -q --disable-pip-version-check || log_error "Błąd przy aktualizacji pip!"
+log_info "Konfiguracja pip..."
+# Logika aktualizacji pip (Offline vs Online)
+if [ -d "$LIBS_DIR" ]; then
+    # OFFLINE: Nie aktualizuj pip z sieci, użyj ensurepip
+    "$PY" -m ensurepip >/dev/null 2>&1 || true
+else
+    # ONLINE: Spróbuj zaktualizować pip
+    log_info "Aktualizuję pip w venv (tryb online)..."
+    if ! "$PY" -m pip install --upgrade pip -q --disable-pip-version-check >/dev/null 2>&1; then
+        # Próba 2: doinstaluj pip przez ensurepip (czasem na Debianie/MX pip w venv nie jest wgrany)
+        "$PY" -m ensurepip --upgrade >/dev/null 2>&1 || true
+        "$PY" -m pip install --upgrade pip -q --disable-pip-version-check || log_warn "Ostrzeżenie: Nie udało się zaktualizować pip, używam wersji systemowej."
+    fi
 fi
 
-log_info "Instaluję biblioteki Python (imapclient, beautifulsoup4, premailer)..."
-if ! "$PY" -m pip install --no-input imapclient beautifulsoup4 premailer -q
-then
-    log_error "Błąd instalacji bibliotek Python!"
+log_info "Instaluję biblioteki Python (imapclient, beautifulsoup4)..."
+
+if [ -d "$LIBS_DIR" ]; then
+    # Tryb OFFLINE: Instalacja z folderu lib
+    log_info "Tryb OFFLINE: Instalacja z folderu lib..."
+    if ! "$PY" -m pip install --no-index --find-links="$LIBS_DIR" imapclient beautifulsoup4 -q; then
+         log_error "Błąd instalacji bibliotek z folderu lib! Sprawdź czy pliki .whl istnieją."
+    fi
+else
+    # Tryb ONLINE: Pobieranie z internetu
+    log_info "Tryb ONLINE: Pobieranie z internetu..."
+    if ! "$PY" -m pip install --no-input imapclient beautifulsoup4 -q; then
+        log_error "Błąd instalacji bibliotek Python z internetu!"
+    fi
 fi
 
 log_success "Biblioteki Python zostały pomyślnie zainstalowane w: $VENV_DIR"

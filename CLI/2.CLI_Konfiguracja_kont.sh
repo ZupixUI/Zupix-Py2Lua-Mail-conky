@@ -1,12 +1,9 @@
 #!/bin/bash
-# 3.CLI_Konfiguracja_kont.sh (v4.0-cli-json-fix)
-# - Przystosowano do uruchamiania z podkatalogu 'CLI'.
-# - POPRAWKA KRYTYCZNA: Bezpieczny zapis JSON (jq -s) - naprawia błąd haseł ze znakami specjalnymi.
-# - POPRAWKA: Dodano flagę -r do odczytu hasła (obsługa backslasha).
-# - Kod Perla rozpisany na wiele linii dla maksymalnej czytelności.
-# - Wersja w pełni terminalowa (CLI-only).
+# 3.CLI_Konfiguracja_kont.sh (v4.7-cli-variable-fix)
+# - Wersja terminalowa (CLI).
+# - FIX: Poprawiono błąd zmiennej '$new_name' na '$imp_name' w sekcji importu.
 
-# --- DETEKCJA I URUCHOMIENIE W TERMINALU (gdy kliknięty z GUI) ---
+# --- DETEKCJA I URUCHOMIENIE W TERMINALU ---
 if [ ! -t 0 ]; then
     TERMINALS=(gnome-terminal xfce4-terminal konsole tilix mate-terminal x-terminal-emulator xterm)
     TERM_CMD=""
@@ -34,35 +31,22 @@ fi
 # --- ZMIENNE I ŚCIEŻKI ---
 set -euo pipefail
 
-# SCRIPT_DIR = Katalog .../Projekt/CLI
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# PROJECT_DIR = Katalog .../Projekt (jeden wyżej)
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Pliki konfiguracyjne znajdują się w katalogu głównym projektu
 ACCOUNTS_JSON="$PROJECT_DIR/config/accounts.json"
 EMAIL_LUA="$PROJECT_DIR/lua/e-mail.lua"
 QUESTION_FLAG="$PROJECT_DIR/config/.question_3.START"
-
-# Kolejny skrypt znajduje się w tym samym katalogu co ten (CLI)
 START_SCRIPT="$SCRIPT_DIR/3.CLI_START_RESTART_skryptów_oraz_conky.sh"
 
 # --- BIBLIOTEKA FUNKCJI CLI ---
 C_RESET='\033[0m'; C_RED='\033[0;31m'; C_GREEN='\033[0;32m'; C_YELLOW='\033[0;33m'; C_CYAN='\033[0;36m'; C_BOLD='\033[1m'
 
-_log() { 
-    local c="$1"; local p="$2"; shift 2; 
-    echo -e "${c}${C_BOLD}${p}${C_RESET} ${c}$*${C_RESET}"; 
-}
+_log() { local c="$1"; local p="$2"; shift 2; echo -e "${c}${C_BOLD}${p}${C_RESET} ${c}$*${C_RESET}"; }
 log_info() { _log "$C_CYAN" "ℹ" "$@"; }
 log_success() { _log "$C_GREEN" "✅" "$@"; }
 log_warn() { _log "$C_YELLOW" "⚠️" "$@"; }
-log_error() { 
-    _log "$C_RED" "❌" "$@"; 
-    echo -e "${C_RED}Skrypt nie może kontynuować.${C_RESET}"; 
-    read -p "Naciśnij Enter..."; exit 1; 
-}
+log_error() { _log "$C_RED" "❌" "$@"; echo -e "${C_RED}Skrypt nie może kontynuować.${C_RESET}"; read -p "Naciśnij Enter..."; exit 1; }
 
 prompt_choice() {
     local prompt_text="$1"; local choices="$2"; local default_choice="$3"; local user_input
@@ -70,27 +54,24 @@ prompt_choice() {
         read -rp "$(echo -e "${C_YELLOW}${prompt_text} [${choices}]: ${C_RESET}")" user_input
         user_input=${user_input:-$default_choice}
         if [[ "${choices^^}" =~ "${user_input^^}" ]]; then echo "$user_input"; return 0; fi
-        _log "$C_RED" "!" "Nieprawidłowa opcja. Spróbuj ponownie."
+        _log "$C_RED" "!" "Nieprawidłowa opcja. Spróbuj ponownie." >&2
     done
 }
 
 prompt_input() {
     local prompt_text="$1"; local default_value="$2"; local input
-    read -rp "$(echo -e "${C_YELLOW}${prompt_text}${C_RESET} ${C_CYAN}[$default_value]:${C_RESET} ")" input
+    echo -e "${C_YELLOW}${prompt_text}${C_RESET} ${C_CYAN}[$default_value]:${C_RESET}" >&2
+    echo -ne "${C_BOLD}> ${C_RESET}" >&2
+    read -e -r input
     echo "${input:-$default_value}"
 }
 
 prompt_password() {
-    local prompt_text="$1"
-    local pass
-    # FIX: Dodano flagę -r, aby backslash nie był interpretowany jako znak ucieczki
+    local prompt_text="$1"; local pass
     read -rs -p "$(echo -e "${C_YELLOW}${prompt_text}: ${C_RESET}")" pass
-    # Przesuń kursor do nowej linii na ekranie (stderr), aby nie zostało to przechwycone przez $()
     echo >&2
-    # Zwróć czyste hasło (stdout)
     printf "%s" "$pass"
 }
-# --- KONIEC BIBLIOTEKI CLI ---
 
 # --- SPRAWDZENIE ZALEŻNOŚCI ---
 if ! command -v jq &> /dev/null; then log_error "Narzędzie 'jq' nie jest zainstalowane. Zainstaluj je (np. sudo apt install jq)."; fi
@@ -105,6 +86,31 @@ hex_to_lua_rgb() {
 }
 
 validate_hex_color() { [[ "$1" =~ ^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$ ]]; }
+
+select_import_file() {
+    local file=""
+    if [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
+        if command -v zenity &>/dev/null; then
+            file=$(zenity --file-selection --title="Wybierz plik accounts.json do importu" --file-filter="*.json" 2>/dev/null)
+            local ret=$?
+            if [ $ret -eq 0 ]; then echo "$file"; return 0; fi
+            echo ""; return 0
+        elif command -v kdialog &>/dev/null; then
+            file=$(kdialog --getopenfilename . "*.json" 2>/dev/null)
+            local ret=$?
+            if [ $ret -eq 0 ]; then echo "$file"; return 0; fi
+            echo ""; return 0
+        fi
+        if command -v python3 &>/dev/null; then
+            if python3 -c "import tkinter" &>/dev/null; then
+                file=$(python3 -c "import tkinter.filedialog as fd; import tkinter; root=tkinter.Tk(); root.withdraw(); print(fd.askopenfilename(filetypes=[('JSON', '*.json')]))" 2>/dev/null)
+                echo "$file"
+                return 0
+            fi
+        fi
+    fi
+    prompt_input "Ścieżka pliku" ""
+}
 
 declare -a accounts_array; _prompt_color_result=""
 
@@ -122,10 +128,11 @@ backup_configs() {
 }
 
 save_accounts_array() { 
-    # FIX: Używamy 'jq -s' zamiast sklejania stringów.
-    # printf '%s\n' wypisuje każdy element tablicy w nowej linii (jako oddzielny obiekt JSON),
-    # a jq -s (slurp) łączy je w jedną poprawną tablicę JSON.
-    printf '%s\n' "${accounts_array[@]}" | jq -s '.' > "$ACCOUNTS_JSON"
+    if [ ${#accounts_array[@]} -eq 0 ]; then
+        echo "[]" > "$ACCOUNTS_JSON"
+    else
+        printf '%s\n' "${accounts_array[@]}" | jq -s '.' > "$ACCOUNTS_JSON"
+    fi
 }
 
 run_perl_script() {
@@ -185,8 +192,22 @@ move_line_in_block_perl() {
     '; run_perl_script "$file" "$script" "$@"
 }
 
+empty_block_perl() {
+    local file="$1"; shift; local script='
+        use strict; use warnings; my ($file, $start_regex) = @ARGV;
+        open my $fh, "<", $file or die "Cannot open $file: $!"; my @lines = <$fh>; close $fh;
+        for (my $i=0; $i<@lines; $i++) { if ($lines[$i] =~ /$start_regex/) {
+            for (my $j=$i+1; $j<@lines; $j++) { if ($lines[$j] =~ /^\s*},?\s*$/) {
+                splice(@lines, $i+1, $j-($i+1)); last;
+            } }
+            last; } }
+        print @lines;
+    '; run_perl_script "$file" "$script" "$@"
+}
+
 prompt_color() {
-    echo; log_info "Wybierz kolor dla konta:";
+    local context_name="${1:-konta}"
+    echo; log_info "Wybierz kolor dla $context_name:"
     local palette_names=("Biały" "Czerwony" "Zielony" "Żółty" "Niebieski" "Magenta" "Cyjan" "Pomarańczowy" "Limonkowy" "Różowy")
     local palette_hex=("#FFFFFF" "#E74C3C" "#2ECC71" "#F1C40F" "#3498DB" "#9B59B6" "#1ABC9C" "#E67E22" "#AEEA00" "#F06292")
     for i in "${!palette_names[@]}"; do echo -e "  $(($i+1))) ${palette_names[$i]} (${palette_hex[$i]})"; done
@@ -195,7 +216,7 @@ prompt_color() {
         read -rp "$(echo -e "${C_YELLOW}Twój wybór [1-10 lub HEX]: ${C_RESET}")" choice
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#palette_hex[@]} ]; then _prompt_color_result="${palette_hex[$(($choice-1))]}"; return 0;
         elif validate_hex_color "$choice"; then _prompt_color_result="$choice"; return 0;
-        else _log "$C_RED" "!" "Nieprawidłowy wybór. Wpisz numer 1-10 lub poprawny kod HEX."; fi
+        else _log "$C_RED" "!" "Nieprawidłowy wybór. Wpisz numer 1-10 lub poprawny kod HEX." >&2; fi
     done
 }
 
@@ -203,7 +224,7 @@ prompt_color() {
 while true; do
     clear
     load_accounts_to_array
-    echo -e "${C_BOLD}--- Konfigurator Kont E-mail ---${C_RESET}"
+    echo -e "${C_BOLD}--- Konfigurator Kont E-mail (CLI) ---${C_RESET}"
     
     OPTIONS=()
     if [ ${#accounts_array[@]} -gt 0 ]; then
@@ -215,7 +236,7 @@ while true; do
     else
         log_warn "Nie skonfigurowano jeszcze żadnych kont."
     fi
-    OPTIONS+=("➕ Dodaj nowe konto" "❌ Zakończ")
+    OPTIONS+=("➕ Dodaj nowe konto" "📂 Importuj z pliku JSON" "🗑️ Usuń wszystkie konta" "❌ Zakończ")
     echo
 
     PS3="$(echo -e "${C_YELLOW}Wybierz opcję: ${C_RESET}")"
@@ -228,7 +249,6 @@ while true; do
                         mkdir -p "$(dirname "$QUESTION_FLAG")"
                         touch "$QUESTION_FLAG"
                         if [ -f "$START_SCRIPT" ] && [ -x "$START_SCRIPT" ]; then
-                            # Uruchamiamy skrypt 4 w tle (&)
                             "$START_SCRIPT" &
                             log_success "Uruchomiono skrypt startowy w tle."
                         else
@@ -276,8 +296,106 @@ while true; do
                 break
                 ;;
 
+            "📂 Importuj z pliku JSON")
+                clear
+                log_info "Wskaż ścieżkę do pliku JSON."
+                
+                IMPORT_FILE=$(select_import_file)
+                
+                if [ -z "$IMPORT_FILE" ]; then
+                    log_warn "Anulowano lub nie wybrano pliku."
+                    read -p "Naciśnij Enter..."
+                    break
+                fi
+
+                if [ ! -f "$IMPORT_FILE" ]; then
+                     log_warn "Plik nie istnieje: $IMPORT_FILE"
+                     read -p "Naciśnij Enter..."
+                     break
+                fi
+
+                if ! jq -e . "$IMPORT_FILE" &>/dev/null; then
+                    log_warn "Wskazany plik nie jest poprawnym formatem JSON."
+                    read -p "Naciśnij Enter..."
+                    break
+                fi
+
+                log_info "Import z pliku: $IMPORT_FILE"
+                log_info "Konta o istniejących nazwach zostaną pominięte."
+                confirm=$(prompt_choice "Kontynuować?" "T/N" "T")
+                if [[ "${confirm^^}" != "T" ]]; then break; fi
+
+                backup_configs
+                mapfile -t imported_items < <(jq -c '.[]' "$IMPORT_FILE" 2>/dev/null || true)
+                
+                added_count=0
+                skipped_count=0
+                
+                for json_item in "${imported_items[@]}"; do
+                    imp_name=$(jq -r '.name' <<< "$json_item")
+                    imp_login=$(jq -r '.login' <<< "$json_item")
+                    
+                    if [ -z "$imp_name" ] || [ "$imp_name" == "null" ] || [ -z "$imp_login" ] || [ "$imp_login" == "null" ]; then
+                        continue
+                    fi
+
+                    exists=0
+                    for existing_item in "${accounts_array[@]}"; do
+                        ex_name=$(jq -r '.name' <<< "$existing_item")
+                        if [ "$ex_name" == "$imp_name" ]; then exists=1; break; fi
+                    done
+                    
+                    if [ "$exists" -eq 1 ]; then
+                        skipped_count=$((skipped_count + 1))
+                        continue
+                    fi
+                    
+                    prompt_color "'$imp_name'"
+                    COLOR_HEX="$_prompt_color_result"
+                    new_color_lua=$(hex_to_lua_rgb "$COLOR_HEX")
+
+                    insert_before_block_end_perl "$EMAIL_LUA" '^ACCOUNT_COLORS = \{' "    [\"$imp_name\"] = $new_color_lua,"
+                    insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = \{' "    \"$imp_login\","
+                    insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = \{' "    \"$imp_name\","
+
+                    accounts_array+=("$json_item")
+                    added_count=$((added_count + 1))
+                done
+
+                save_accounts_array
+                log_success "Operacja zakończona. Zaimportowano: $added_count, Pominięto: $skipped_count"
+                read -p "Naciśnij Enter..."
+                break
+                ;;
+
+            "🗑️ Usuń wszystkie konta")
+                clear
+                log_warn "UWAGA: To jest operacja destrukcyjna!"
+                log_warn "Zostanie wyczyszczony plik accounts.json oraz tablice w e-mail.lua."
+                confirm=$(prompt_choice "Czy na pewno chcesz usunąć WSZYSTKIE konta?" "TAK/NIE" "NIE")
+                
+                if [[ "$confirm" == "TAK" ]]; then
+                    backup_configs
+                    echo "[]" > "$ACCOUNTS_JSON"
+                    empty_block_perl "$EMAIL_LUA" '^ACCOUNT_COLORS = \{'
+                    empty_block_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = \{'
+                    empty_block_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = \{'
+                    accounts_array=()
+                    log_success "Wszystkie konta zostały usunięte. Konfiguracja jest czysta."
+                else
+                    log_info "Operacja anulowana."
+                fi
+                read -p "Naciśnij Enter..."
+                break
+                ;;
+
             *)
+                # Obsługa edycji konta (gdy wybrano z listy kont)
+                if [[ -z "$opt" ]]; then log_warn "Nieprawidłowa opcja."; break; fi
+                
                 CHOICE=$((REPLY-1))
+                if [ "$CHOICE" -ge ${#accounts_array[@]} ]; then log_warn "Nieprawidłowa opcja."; break; fi
+                
                 original_json="${accounts_array[$CHOICE]}"
                 name_to_manage=$(jq -r '.name' <<< "$original_json")
                 login_to_manage=$(jq -r '.login' <<< "$original_json")

@@ -25,7 +25,18 @@ import socket
 import subprocess
 import signal
 import ssl
+import imaplib
 
+# ==========================================
+# FIX DLA PYTHON 3.13.*
+# Błąd: property 'file' of 'IMAP4_TLS' object has no setter
+# ==========================================
+try:
+    if hasattr(imaplib.IMAP4, 'file'):
+        del imaplib.IMAP4.file
+except Exception:
+    pass
+# ==========================================
 
 # ========== UTIL: kolory + prosty logger ==========
 

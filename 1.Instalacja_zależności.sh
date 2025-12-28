@@ -1,5 +1,5 @@
 #!/bin/bash
-# 1.Instalacja_zależności.sh (v1.8 - Unknown PM Support)
+# 1.Instalacja_zależności.sh (v1.9 - Offline/Lib Support)
 
 # ==========================================
 # 1. KONFIGURACJA ZMIENNYCH
@@ -7,6 +7,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WIDGET_DIR="$SCRIPT_DIR/lua"
+LIBS_DIR="$SCRIPT_DIR/lib"   # <--- Lokalizacja paczek offline
 DKJSON_URL="https://raw.githubusercontent.com/LuaDist/dkjson/master/dkjson.lua"
 DKJSON_LOCAL="$WIDGET_DIR/dkjson.lua"
 SOUND_FOLDER="$SCRIPT_DIR/sound"
@@ -1012,17 +1013,29 @@ fi
 
 PY="$VENV_DIR/bin/python"
 
-echo "50"; echo "# Aktualizuję pip w venv..."
-# Próba 1: standardowa aktualizacja pip
-if ! "$PY" -m pip install --upgrade pip >/dev/null 2>&1; then
-    # Próba 2: doinstaluj pip przez ensurepip (czasem na Debianie/MX pip w venv nie jest wgrany)
-    "$PY" -m ensurepip --upgrade >/dev/null 2>&1 || true
-    "$PY" -m pip install --upgrade pip || { echo "100"; echo "# Błąd przy aktualizacji pip!"; sleep 1; exit 1; }
+# --- Zmiana: Aktualizacja pip TYLKO w trybie online ---
+echo "50"; echo "# Sprawdzam aktualizację pip..."
+if [ -d "$LIBS_DIR" ]; then
+    # Offline: Użyj ensurepip, nie pchaj się do sieci
+    "$PY" -m ensurepip >/dev/null 2>&1 || true
+else
+    # Online: Spróbuj zaktualizować z sieci
+    if ! "$PY" -m pip install --upgrade pip >/dev/null 2>&1; then
+        "$PY" -m ensurepip --upgrade >/dev/null 2>&1 || true
+        "$PY" -m pip install --upgrade pip || { echo "100"; echo "# Błąd przy aktualizacji pip!"; sleep 1; exit 1; }
+    fi
 fi
 sleep 0.3
 
-echo "80"; echo "# Instaluję biblioteki Python (imapclient, beautifulsoup4, premailer)..."
-"$PY" -m pip install --no-input imapclient beautifulsoup4 premailer || { echo "100"; echo "# Błąd instalacji bibliotek Python!"; sleep 1; exit 1; }
+# --- Zmiana: Instalacja bibliotek z obsługą local lib ---
+echo "80"; echo "# Instaluję biblioteki Python (imapclient, beautifulsoup4)..."
+if [ -d "$LIBS_DIR" ]; then
+    echo "# Tryb OFFLINE: Instalacja z folderu lib..."
+    "$PY" -m pip install --no-index --find-links="$LIBS_DIR" imapclient beautifulsoup4 || { echo "100"; echo "# Błąd instalacji bibliotek z folderu lib!"; sleep 1; exit 1; }
+else
+    echo "# Tryb ONLINE: Pobieranie z internetu..."
+    "$PY" -m pip install --no-input imapclient beautifulsoup4 || { echo "100"; echo "# Błąd instalacji bibliotek Python!"; sleep 1; exit 1; }
+fi
 
 echo "100"; echo "# Gotowe! Wymagane biblioteki Python zostały zainstalowane."
 sleep 0.5
@@ -1039,7 +1052,7 @@ if [ "${PIPESTATUS[0]}" -ne 0 ]; then
 fi
 trap 'error_exit "Nieoczekiwany błąd w skrypcie!" "trap"' ERR
 
-zenity_info_or_exit "<big>📦 Pakiety <b>imapclient</b>, <b>beautifulsoup4</b> oraz <b>premailer</b> zostały zainstalowane w środowisku venv:</big>\n<tt>$VENV_DIR</tt>"
+zenity_info_or_exit "<big>📦 Pakiety <b>imapclient</b> oraz <b>beautifulsoup4</b> zostały zainstalowane w środowisku venv:</big>\n<tt>$VENV_DIR</tt>"
 
 if zenity --question --title="Sukces! 🎉" --text="<big><big>Skrypt wykonał swoje zadanie 😊</big></big>\nCzy chcesz teraz uruchomić kolejny skrypt <b>\"2.Konfiguracja_kont.sh\"</b>, który pomoże Ci skonfigurować konta pocztowe?\n<span foreground='red'>Jest to konieczne do prawidłowego działania widgetu.</span>" --ok-label="Tak" --cancel-label="Nie"; then
     if [ -f "2.Konfiguracja_kont.sh" ]; then

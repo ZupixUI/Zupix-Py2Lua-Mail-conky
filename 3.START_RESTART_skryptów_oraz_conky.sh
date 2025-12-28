@@ -12,6 +12,7 @@ fi
 
 cd "$(dirname "$(readlink -f "$0")")"
 
+# --- ZMIENNE KONFIGURACYJNE ---
 CACHE_DIR="/dev/shm/Zupix-Py2Lua-Mail-conky"
 LOCK_FILE="/dev/shm/Zupix-Py2Lua-Mail-conky/loop_script.lock"
 CONKY_CONF="conkyrc_zupix"
@@ -19,6 +20,8 @@ PYTHON_SCRIPT="./py/ZupixPyMail.py"
 PYTHON_ACCOUNTS="./config/accounts.json"
 MAIL_CACHE="/dev/shm/Zupix-Py2Lua-Mail-conky/mail_cache.json"
 MAX_WAIT=60
+VENV_DIR="./py/venv"
+LIBS_DIR="./lib"  # <--- ZMIANA: TU SZUKAMY BIBLIOTEK OFFLINE (folder lib)
 
 # --- Plik do przechowywania PID procesu Conky ---
 CONKY_PID_FILE="$CACHE_DIR/conky.pid"
@@ -170,16 +173,96 @@ RAM_PID=$!
 disown $RAM_PID  # <--- DODANO: Bash nie będzie raportował zabicia tego procesu
 echo $RAM_PID > "$RAM_PID_FILE"
 
-# --- Uruchamianie skryptu Python w środowisku venv i detekcja poprawnego startu ---
-VENV_DIR="./py/venv"
+
+# ==============================================================================
+#  Obsługa środowiska venv (AUTO-HEALING / SMART PORTABLE)
+# ==============================================================================
+
+REBUILD_VENV=0
+VENV_PYTHON="$VENV_DIR/bin/python3"
+VENV_PIP="$VENV_DIR/bin/pip"
+ACTIVATE_SCRIPT="$VENV_DIR/bin/activate"
+
+# 1. Sprawdź czy folder venv w ogóle istnieje
 if [ ! -d "$VENV_DIR" ]; then
-    notify-send "❗ Brak środowiska venv" "Nie znaleziono katalogu $VENV_DIR. Nie uruchamiam Pythona."
-    [ -f "$RESPAWN_PID_FILE" ] && kill $(cat "$RESPAWN_PID_FILE") 2>/dev/null && rm -f "$RESPAWN_PID_FILE"
-    [ -f "$RAM_PID_FILE" ] && kill $(cat "$RAM_PID_FILE") 2>/dev/null && rm -f "$RAM_PID_FILE"
-    pkill -f "conky.*-c $CONKY_CONF"
-    rm -f "$LOCK_FILE"
-    exit 1
+    REBUILD_VENV=1
+elif [ ! -f "$ACTIVATE_SCRIPT" ]; then
+    # Brak pliku activate - uszkodzony venv
+    REBUILD_VENV=1
+else
+    # 2. KLUCZOWE POPRAWKA: Porównanie fizycznych ścieżek zamiast tekstowych
+    # Wyciągamy ścieżkę zapisaną w activate (niezależnie od symlinków)
+    STORED_VENV_PATH=$(unset VIRTUAL_ENV; source "$ACTIVATE_SCRIPT"; echo "$VIRTUAL_ENV")
+    
+    # Rozwiązujemy obie ścieżki do ich fizycznej postaci (readlink -f)
+    REAL_CURRENT=$(readlink -f "$VENV_DIR")
+    REAL_STORED=$(readlink -f "$STORED_VENV_PATH")
+    
+    # Jeśli fizyczne lokalizacje są różne -> naprawiamy
+    if [ "$REAL_CURRENT" != "$REAL_STORED" ]; then
+        echo "⚠️ Wykryto zmianę lokalizacji projektu. Naprawiam..."
+        # Debug info w terminalu:
+        # echo "DEBUG: Current=$REAL_CURRENT | Stored=$REAL_STORED"
+        REBUILD_VENV=1
+    else
+        # 3. Dodatkowy test: Czy biblioteki są faktycznie widoczne
+        if ! "$VENV_PYTHON" -c "import imapclient; import bs4" >/dev/null 2>&1; then
+            echo "⚠️ Brak wymaganych bibliotek w venv. Naprawiam..."
+            REBUILD_VENV=1
+        fi
+    fi
 fi
+
+if [ "$REBUILD_VENV" -eq 1 ]; then
+    # --- PROCES NAPRAWY Z PASKIEM POSTĘPU ZENITY ---
+    (
+        echo "5"; echo "# Wykryto zmianę lokalizacji. Usuwam stare środowisko..."
+        sleep 0.5
+        rm -rf "$VENV_DIR"
+
+        echo "25"; echo "# Tworzę nowe środowisko Python venv..."
+        if ! python3 -m venv "$VENV_DIR"; then
+            echo "100"; exit 1
+        fi
+        
+        # Redefinicja pip pod nową strukturą
+        NEW_PIP="$VENV_DIR/bin/pip"
+
+        echo "50"; echo "# Instaluję wymagane biblioteki..."
+        
+        if [ -d "$LIBS_DIR" ]; then
+            echo "# Tryb OFFLINE: Instalacja z folderu lib..."
+            "$NEW_PIP" install --no-index --find-links="$LIBS_DIR" imapclient beautifulsoup4 >/dev/null 2>&1
+        else
+            echo "# Tryb ONLINE: Pobieranie bibliotek z sieci..."
+            "$NEW_PIP" install imapclient beautifulsoup4 >/dev/null 2>&1
+        fi
+        
+        # Sprawdzamy kod wyjścia pip
+        if [ $? -eq 0 ]; then
+            echo "100"; echo "# Naprawa zakończona sukcesem!"
+            sleep 0.5
+        else
+            echo "100"; exit 1
+        fi
+
+    ) | zenity --progress \
+        --title="Automatyczna naprawa venv" \
+        --text="Wykryto, że folder projektu został przeniesiony.\nDostosowuję środowisko Python..." \
+        --percentage=0 --auto-close --no-cancel --width=450
+
+    # Sprawdzenie czy subshell w potoku zakończył się błędem
+    if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+        zenity --error --width=500 --text="❌ <b>Błąd naprawy środowiska!</b>\n\nNie udało się zainstalować bibliotek lub utworzyć venv.\nUpewnij się, że masz pakiet <tt>python3-venv</tt> oraz folder <tt>lib</tt> (jeśli jesteś offline)."
+        exit 1
+    fi
+    
+    notify-send "✅ Gotowe" "Środowisko Python zostało zaktualizowane."
+fi
+
+# ==============================================================================
+#  Uruchamianie skryptu Python
+# ==============================================================================
 
 echo "Aktywuję środowisko venv..."
 notify-send "🐍 Virtualenv" "Aktywuję środowisko Python venv..."
@@ -190,6 +273,7 @@ PY_SCRIPT_ABS="$(readlink -f "$PYTHON_SCRIPT")"
 notify-send "▶️ Uruchamiam Pythona" "Uruchamiam skrypt $PY_SCRIPT_ABS"
 
 (
+    # Używamy source, bo już wiemy, że venv jest świeży i pasuje do obecnej ścieżki
     source "$VENV_ABS/bin/activate"
     python3 "$PYTHON_SCRIPT" $PYTHON_ARGS &
     wait $!
