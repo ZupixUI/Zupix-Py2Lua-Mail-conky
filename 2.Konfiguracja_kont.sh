@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==========================================================
-#     3.Konfigurator_kont.sh — Ultimate v2.3 (Delete All)
+#     2.Konfigurator_kont.sh — Ultimate v2.6 (Secure Export)
 # ==========================================================
 
 # Przejdź do katalogu, w którym znajduje się skrypt
@@ -15,6 +15,29 @@ EMAIL_LUA="lua/e-mail.lua"
 QUESTION_FLAG="config/.question_3.START"
 START_SCRIPT="./3.START_RESTART_skryptów_oraz_conky.sh"
 
+# --- ZMIENNE SZYFROWANIA I ŚCIEŻKI ---
+# Stara ścieżka (do migracji)
+OLD_CONFIG_DIR="$HOME/.config/conky-mail-secret-key"
+# Nowa ścieżka (porządek)
+USER_CONFIG_DIR="$HOME/.config/Zupix-Py2Lua-Mail-conky"
+
+SECRET_KEY="$USER_CONFIG_DIR/.secret_key"
+MASTER_PASS_FILE="$USER_CONFIG_DIR/.master_hash"
+SECURITY_FLAG="config/.security_decision_made"
+CHALLENGE_TEXT="ACCESS_GRANTED_VERIFIED"
+
+# --- AUTOMATYCZNA MIGRACJA STARYCH KLUCZY ---
+if [ -d "$OLD_CONFIG_DIR" ]; then
+    if [ ! -d "$USER_CONFIG_DIR" ]; then
+        # Jeśli stary istnieje, a nowy nie -> zmieniamy nazwę (przenosimy)
+        mv "$OLD_CONFIG_DIR" "$USER_CONFIG_DIR"
+    else
+        # Jeśli oba istnieją, przenieś zawartość i usuń stary
+        cp -n "$OLD_CONFIG_DIR/"* "$USER_CONFIG_DIR/" 2>/dev/null || true
+        rm -rf "$OLD_CONFIG_DIR"
+    fi
+fi
+
 # Sprawdzenie, czy 'jq' jest zainstalowany
 if ! command -v jq &> /dev/null; then
     zenity --error --title="Brak zależności" --text="Narzędzie 'jq' nie jest zainstalowane.\nZainstaluj poleceniem: sudo apt install jq"
@@ -26,6 +49,150 @@ if ! command -v perl &> /dev/null; then
     zenity --error --title="Brak zależności" --text="Narzędzie 'perl' nie jest zainstalowane.\nJest ono wymagane do modyfikacji pliku konfiguracyjnego Lua.\n\nZainstaluj je i spróbuj ponownie."
     exit 1
 fi
+
+# Sprawdzenie, czy 'openssl' jest zainstalowany (Dla szyfrowania)
+if ! command -v openssl &> /dev/null; then
+    zenity --error --title="Brak zależności" --text="Narzędzie 'openssl' nie jest zainstalowane.\nJest wymagane do szyfrowania haseł.\nZainstaluj je poleceniem: sudo apt install openssl"
+    exit 1
+fi
+
+# ==========================================================
+#                 Funkcje SZYFROWANIA (Konta)
+# ==========================================================
+
+ensure_key_exists() {
+    mkdir -p "$USER_CONFIG_DIR"
+    if [ ! -f "$SECRET_KEY" ]; then
+        openssl rand -base64 32 > "$SECRET_KEY"
+        chmod 600 "$SECRET_KEY"
+    fi
+}
+
+encrypt_pass() {
+    local cleartext="$1"
+    [[ -z "$cleartext" ]] && echo "" && return
+    ensure_key_exists
+    echo -n "$cleartext" | openssl enc -aes-256-cbc -salt -pbkdf2 -pass file:"$SECRET_KEY" -a -A
+}
+
+decrypt_pass() {
+    local encrypted="$1"
+    [[ -z "$encrypted" ]] && echo "" && return
+    ensure_key_exists
+    local decrypted
+    decrypted=$(echo "$encrypted" | openssl enc -aes-256-cbc -d -salt -pbkdf2 -pass file:"$SECRET_KEY" -a -A 2>/dev/null || true)
+    
+    if [ -n "$decrypted" ]; then
+        echo "$decrypted"
+    else
+        echo "$encrypted"
+    fi
+}
+
+# ==========================================================
+#             Funkcje HASŁA GŁÓWNEGO (Master Pass)
+# ==========================================================
+
+set_master_password() {
+    while true; do
+        PASS_DATA=$(zenity --forms --title="Ustaw Hasło Główne" \
+            --text="To hasło będzie wymagane przy każdym uruchomieniu konfiguratora." \
+            --add-password="Hasło:" \
+            --add-password="Powtórz hasło:") || return 1
+        
+        P1=$(echo "$PASS_DATA" | cut -d'|' -f1)
+        P2=$(echo "$PASS_DATA" | cut -d'|' -f2)
+
+        if [ -z "$P1" ]; then
+            zenity --error --text="Hasło nie może być puste."
+            continue
+        fi
+
+        if [ "$P1" != "$P2" ]; then
+            zenity --error --text="Podane hasła nie są identyczne."
+            continue
+        fi
+
+        # Szyfrujemy stały tekst CHALLENGE_TEXT nowym hasłem użytkownika
+        ensure_key_exists # Upewnij się, że katalog istnieje
+        echo -n "$CHALLENGE_TEXT" | openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:"$P1" -a -A > "$MASTER_PASS_FILE"
+        chmod 600 "$MASTER_PASS_FILE"
+        
+        # Tworzymy flagę, że decyzja podjęta
+        mkdir -p "$(dirname "$SECURITY_FLAG")"
+        touch "$SECURITY_FLAG"
+        
+        zenity --info --text="Hasło główne zostało ustawione."
+        return 0
+    done
+}
+
+verify_startup_security() {
+    # 1. Jeśli istnieje plik z hasłem - wymagaj logowania (NAJWAŻNIEJSZE)
+    if [ -f "$MASTER_PASS_FILE" ] && [ -s "$MASTER_PASS_FILE" ]; then
+        local attempts=0
+        while true; do
+            INPUT_PASS=$(zenity --password --title="Wymagana autoryzacja" --text="Podaj hasło główne, aby uzyskać dostęp:") || exit 1
+            
+            # Próba odszyfrowania challenge'a
+            local FILE_CONTENT=$(cat "$MASTER_PASS_FILE")
+            local DECRYPTED_CHECK=$(echo "$FILE_CONTENT" | openssl enc -d -aes-256-cbc -salt -pbkdf2 -pass pass:"$INPUT_PASS" -a -A 2>/dev/null || true)
+
+            if [ "$DECRYPTED_CHECK" == "$CHALLENGE_TEXT" ]; then
+                return 0 # Sukces
+            else
+                zenity --error --text="Błędne hasło!"
+                attempts=$((attempts+1))
+                if [ $attempts -ge 3 ]; then
+                    exit 1
+                fi
+            fi
+        done
+    fi
+
+    # 2. Jeśli nie ma hasła, ale jest flaga - wejdź bez pytań (użytkownik kiedyś kliknął "Nie")
+    if [ -f "$SECURITY_FLAG" ]; then
+        return 0
+    fi
+
+    # 3. Jeśli nie ma nic - zapytaj o stworzenie hasła
+    if zenity --question --width=400 --icon-name="dialog-password" \
+        --title="Zabezpieczenia" \
+        --text="<big><b>Czy chcesz zabezpieczyć konfigurator hasłem głównym?</b></big>\n\nZalecane, aby nikt niepowołany nie mógł edytować Twoich kont."; then
+        
+        if ! set_master_password; then
+            # Jeśli anulował ustawianie hasła, to tak jakby nie chciał go ustawić
+            mkdir -p "$(dirname "$SECURITY_FLAG")"
+            touch "$SECURITY_FLAG"
+        fi
+    else
+        # Użytkownik wybrał "Nie" - tworzymy flagę, żeby nie pytać ponownie
+        mkdir -p "$(dirname "$SECURITY_FLAG")"
+        touch "$SECURITY_FLAG"
+    fi
+}
+
+manage_master_password() {
+    ACTION=$(zenity --list --width=400 --height=250 --title="Zarządzanie hasłem głównym" \
+        --column="Opcja" --column="Opis" \
+        "change" "Zmień hasło główne" \
+        "remove" "Usuń hasło główne (wyłącz ochronę)" \
+        --hide-column=1) || return
+
+    case "$ACTION" in
+        "change")
+            set_master_password
+            ;;
+        "remove")
+            if zenity --question --text="Czy na pewno chcesz usunąć hasło główne?\n\nProgram będzie uruchamiał się bez autoryzacji."; then
+                rm -f "$MASTER_PASS_FILE"
+                mkdir -p "$(dirname "$SECURITY_FLAG")"
+                touch "$SECURITY_FLAG" # Upewniamy się, że flaga jest
+                zenity --info --text="Hasło główne zostało usunięte."
+            fi
+            ;;
+    esac
+}
 
 
 # --- Konwersja HEX (#RRGGBB or #RGB) -> Lua {r,g,b} (0..1, 2 decimals, dot separator) ---
@@ -314,6 +481,10 @@ save_accounts_array() {
 #                 Główna pętla programu
 # ==========================================================
 
+# --- START: Weryfikacja bezpieczeństwa ---
+verify_startup_security
+# -----------------------------------------
+
 while true; do
     load_accounts_to_array
     original_accounts_array=("${accounts_array[@]}")
@@ -326,12 +497,19 @@ while true; do
         ACCOUNTS_LIST+=("$i" "Konto $((i+1)): $name ($login)")
     done
 
-    # Modyfikacja listy opcji: import + usuń wszystko
-    ACCOUNTS_LIST+=("add" "➕ Dodaj nowe konto" "import" "📂 Importuj z pliku JSON" "delete_all" "🗑️ Usuń wszystkie konta" "exit" "❌ Zakończ")
+    # Modyfikacja listy opcji: import + usuń wszystko + hasło główne
+    ACCOUNTS_LIST+=(
+        "add" "➕ Dodaj nowe konto" 
+        "import" "📂 Importuj (*.json.enc / *.json)" 
+        "export" "📤 Eksportuj (Kopia zapasowa)"
+        "security" "🔐 Zarządzaj hasłem głównym"
+        "delete_all" "🗑️ Usuń wszystkie konta" 
+        "exit" "❌ Zakończ"
+    )
 
     CHOICE=$(zenity --list --hide-column=1 --width=700 --height=460 \
-        --title="Konfigurator Kont E-mail" \
-        --text="Wybierz konto, dodaj nowe lub zarządzaj listą." \
+        --title="Konfigurator Kont E-mail (Szyfrowany)" \
+        --text="Wybierz konto, dodaj nowe lub zarządzaj listą.\nHasła są przechowywane w formie zaszyfrowanej." \
         --column="ID" --column="Opis" "${ACCOUNTS_LIST[@]}")
 
     [ -z "${CHOICE:-}" ] && break
@@ -351,6 +529,9 @@ while true; do
                 fi
             fi
             break
+            ;;
+        "security")
+            manage_master_password
             ;;
         "delete_all")
             # --- SEKCJA KASOWANIA WSZYSTKIEGO START ---
@@ -376,24 +557,103 @@ while true; do
             zenity --info --text="Wszystkie konta zostały usunięte.\nKonfiguracja jest czysta."
             # --- SEKCJA KASOWANIA WSZYSTKIEGO KONIEC ---
             ;;
-        "import")
-            # --- SEKCJA IMPORTU START ---
-            IMPORT_FILE=$(zenity --file-selection --title="Wybierz plik accounts.json do importu" --file-filter="*.json")
+        "export")
+            # --- SEKCJA EKSPORTU ---
+            EXPORT_FILE=$(zenity --file-selection --save --title="Eksportuj konta do pliku" --filename="backup_konta.json.enc")
+            [ -z "$EXPORT_FILE" ] && continue
+
+            # Pobierz hasło do szyfrowania pliku
+            if ! PASS_DATA=$(zenity --forms --title="Zabezpiecz plik eksportu" \
+                --text="Podaj hasło, którym zostanie zaszyfrowany plik eksportu.\nBędzie potrzebne przy imporcie na innym komputerze." \
+                --add-password="Hasło:" --add-password="Powtórz hasło:"); then
+                continue
+            fi
             
-            [ -z "$IMPORT_FILE" ] && continue
-            
-            if ! jq -e . "$IMPORT_FILE" &>/dev/null; then
-                zenity --error --text="Wskazany plik nie jest poprawnym formatem JSON."
+            P1=$(echo "$PASS_DATA" | cut -d'|' -f1)
+            P2=$(echo "$PASS_DATA" | cut -d'|' -f2)
+
+            if [ -z "$P1" ] || [ "$P1" != "$P2" ]; then
+                zenity --error --text="Hasła puste lub nie pasują do siebie."
                 continue
             fi
 
-            if ! zenity --question --text="Czy chcesz zaimportować konta z pliku:\n$IMPORT_FILE\n\nKonta o istniejących nazwach zostaną pominięte.\n\nZa chwilę zostaniesz poproszony o wybór koloru dla każdego nowego konta."; then
+            # Budujemy tymczasowy JSON z jawnymi hasłami w pamięci (zmienna),
+            # aby potem przepuścić go przez openssl
+            TEMP_JSON="[]"
+            COUNT=${#accounts_array[@]}
+            
+            # Pasek postępu
+            (
+            for ((i=0; i<COUNT; i++)); do
+                perc=$(( (i * 100) / COUNT ))
+                echo "$perc"
+                echo "# Przetwarzanie konta $((i+1))..."
+                
+                acc="${accounts_array[$i]}"
+                enc_pass=$(echo "$acc" | jq -r '.password')
+                # Odszyfruj hasło kluczem lokalnym
+                plain_pass=$(decrypt_pass "$enc_pass")
+                
+                # Dodaj do tymczasowego JSONa z jawnym hasłem
+                # Uwaga: jq --argjson dodaje obiekt do tablicy
+                TEMP_JSON=$(echo "$TEMP_JSON" | jq --argjson a "$acc" --arg p "$plain_pass" '. + [$a | .password=$p]')
+            done
+            
+            echo "90"
+            echo "# Szyfrowanie pliku wyjściowego..."
+            
+            # Szyfrujemy CAŁY JSON hasłem użytkownika
+            echo "$TEMP_JSON" | openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:"$P1" -a -A > "$EXPORT_FILE"
+            
+            echo "100"
+            ) | zenity --progress --title="Eksportowanie" --auto-close
+
+            if [ -f "$EXPORT_FILE" ] && [ -s "$EXPORT_FILE" ]; then
+                zenity --info --text="Eksport zakończony sukcesem.\nPlik: $EXPORT_FILE"
+            else
+                zenity --error --text="Błąd eksportu."
+            fi
+            ;;
+        "import")
+            # --- SEKCJA IMPORTU START ---
+            IMPORT_FILE=$(zenity --file-selection --title="Wybierz plik do importu" --file-filter="*.json *.json.enc")
+            [ -z "$IMPORT_FILE" ] && continue
+            
+            # Sprawdź, czy plik jest zaszyfrowany (nagłówek OpenSSL 'Salted__')
+            # Czytamy pierwsze 8 bajtów
+            HEADER=$(head -c 8 "$IMPORT_FILE" 2>/dev/null || true)
+            JSON_CONTENT=""
+
+			if [[ "$HEADER" == "U2FsdGVk" ]]; then
+                # Plik zaszyfrowany - pytamy o hasło
+                DECRYPT_PASS=$(zenity --password --title="Plik zaszyfrowany" --text="Podaj hasło do odszyfrowania pliku importu:") || continue
+                
+                # Odszyfruj do zmiennej
+                JSON_CONTENT=$(openssl enc -d -aes-256-cbc -salt -pbkdf2 -in "$IMPORT_FILE" -pass pass:"$DECRYPT_PASS" -a -A 2>/dev/null || true)
+                
+                if [ -z "$JSON_CONTENT" ]; then
+                    zenity --error --text="Nie udało się odszyfrować pliku.\nBłędne hasło lub uszkodzony plik."
+                    continue
+                fi
+            else
+                # Zakładamy zwykły JSON
+                JSON_CONTENT=$(cat "$IMPORT_FILE")
+            fi
+
+            # Weryfikacja czy to poprawny JSON
+            if ! echo "$JSON_CONTENT" | jq -e . &>/dev/null; then
+                zenity --error --text="Zaimportowana treść nie jest poprawnym formatem JSON."
+                continue
+            fi
+
+            if ! zenity --question --text="<big>Hasło poprawne. Czy chcesz zaimportować konta?</big>\n\nHasła zostaną automatycznie zaszyfrowane kluczem tego komputera."; then
                 continue
             fi
 
             backup_configs
             
-            mapfile -t imported_items < <(jq -c '.[]' "$IMPORT_FILE" 2>/dev/null || true)
+            # Wczytaj items ze zmiennej JSON_CONTENT
+            mapfile -t imported_items < <(echo "$JSON_CONTENT" | jq -c '.[]' 2>/dev/null || true)
             
             added_count=0
             skipped_count=0
@@ -401,6 +661,7 @@ while true; do
             for json_item in "${imported_items[@]}"; do
                 imp_name=$(echo "$json_item" | jq -r '.name')
                 imp_login=$(echo "$json_item" | jq -r '.login')
+                imp_pass_raw=$(echo "$json_item" | jq -r '.password')
                 
                 if [ -z "$imp_name" ] || [ "$imp_name" == "null" ] || [ -z "$imp_login" ] || [ "$imp_login" == "null" ]; then
                     continue
@@ -436,6 +697,13 @@ while true; do
                 insert_before_block_end_perl "$EMAIL_LUA" '^ACCOUNT_COLORS = {' "$lua_color_line"
                 insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = {' "$lua_name_line"
                 insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = {' "$lua_key_line"
+                
+                # --- SZYFROWANIE HASŁA LOKALNYM KLUCZEM ---
+                # Niezależnie czy przyszło jawne czy zaszyfrowane innym kluczem (w eksporcie mamy jawne),
+                # szyfrujemy je naszym kluczem lokalnym.
+                # (W logice Secure Export, imp_pass_raw jest jawne, bo odszyfrowaliśmy cały plik JSON wcześniej)
+                encrypted_imp_pass=$(encrypt_pass "$imp_pass_raw")
+                json_item=$(echo "$json_item" | jq --arg p "$encrypted_imp_pass" '.password = $p')
                 
                 accounts_array+=("$json_item")
                 added_count=$((added_count + 1))
@@ -502,13 +770,16 @@ while true; do
                 continue
             fi
             
+            # --- SZYFROWANIE HASŁA PRZED ZAPISEM ---
+            encrypted_password=$(encrypt_pass "$new_password")
+
             if [ "$new_encryption" = "starttls" ]; then
                 new_account_json=$(jq -n --arg n "$new_name" --arg h "$new_host" --argjson p "$new_port" \
-                    --arg l "$new_login" --arg pass "$new_password" --arg enc "$new_encryption" --argjson vc false \
+                    --arg l "$new_login" --arg pass "$encrypted_password" --arg enc "$new_encryption" --argjson vc false \
                     '{name: $n, host: $h, port: $p, login: $l, password: $pass, encryption: $enc, verify_cert: $vc}')
             else
                 new_account_json=$(jq -n --arg n "$new_name" --arg h "$new_host" --argjson p "$new_port" \
-                    --arg l "$new_login" --arg pass "$new_password" --arg enc "$new_encryption" \
+                    --arg l "$new_login" --arg pass "$encrypted_password" --arg enc "$new_encryption" \
                     '{name: $n, host: $h, port: $p, login: $l, password: $pass, encryption: $enc}')
             fi
 
@@ -535,8 +806,11 @@ while true; do
                     host=$(echo "$original_json" | jq -r '.host')
                     port=$(echo "$original_json" | jq -r '.port')
                     login=$(echo "$original_json" | jq -r '.login')
-                    password=$(echo "$original_json" | jq -r '.password')
+                    encrypted_pass=$(echo "$original_json" | jq -r '.password')
                     encryption=$(echo "$original_json" | jq -r '.encryption // "ssl"')
+
+                    # --- ODSZYFROWANIE HASŁA DO EDYCJI ---
+                    decrypted_pass=$(decrypt_pass "$encrypted_pass")
 
                     if [ "$encryption" = "starttls" ]; then
                         combo_values="starttls|ssl"
@@ -551,7 +825,7 @@ while true; do
                             --add-entry="Port:" "$port" \
                             --add-combo="Szyfrowanie:" --combo-values="$combo_values" \
                             --add-entry="Login (e-mail):" "$login" \
-                            --add-password="Hasło:" "$password")
+                            --add-password="Hasło:" "$decrypted_pass")
                         if [ -z "${NEW_DATA:-}" ]; then break; fi
                         IFS='|' read -r new_name new_host new_port new_encryption new_login new_password <<< "$NEW_DATA"
                         if [[ ! "$new_port" =~ ^[0-9]+$ ]]; then
@@ -597,9 +871,12 @@ while true; do
                         replace_in_block_literal_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = {' "\"$login_to_manage\"" "\"$new_login\""
                         replace_in_block_literal_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = {' "\"$name_to_manage\"" "\"$new_name\""
                         
+                        # --- PONOWNE SZYFROWANIE HASŁA ---
+                        final_pass_encrypted=$(encrypt_pass "$new_password")
+
                         base_json=$(jq -n \
                             --arg n "$new_name" --arg h "$new_host" --argjson p "$new_port" \
-                            --arg l "$new_login" --arg pass "$new_password" --arg enc "$new_encryption" \
+                            --arg l "$new_login" --arg pass "$final_pass_encrypted" --arg enc "$new_encryption" \
                             '{name: $n, host: $h, port: $p, login: $l, password: $pass, encryption: $enc}')
 
                         if [ "$new_encryption" = "starttls" ]; then

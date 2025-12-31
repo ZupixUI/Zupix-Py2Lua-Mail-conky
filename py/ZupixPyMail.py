@@ -38,6 +38,58 @@ except Exception:
     pass
 # ==========================================
 
+# ==========================================
+# FUNKCJA DECRYPT WRAPPER (SZYFROWANIE)
+# ==========================================
+def decrypt_password_wrapper(encrypted_pass):
+    """
+    Odszyfrowuje hasło przy użyciu systemowego OpenSSL i klucza w ~/.config/Zupix-Py2Lua-Mail-conky/.secret_key"
+    Jest to odpowiednik funkcji decrypt_pass z Bash.
+    """
+    if not encrypted_pass:
+        return ""
+    
+    # Jeśli hasło nie wygląda na Base64 (OpenSSL zwykle zaczyna od U2F...),
+    # zakładamy, że to stare hasło plain-text i zwracamy je bez zmian.
+    if not encrypted_pass.startswith("U2F"):
+        return encrypted_pass
+
+    key_path = os.path.expanduser("~/.config/Zupix-Py2Lua-Mail-conky/.secret_key")
+    if not os.path.exists(key_path):
+        # Brak klucza, a hasło wygląda na zaszyfrowane -> błąd
+        print(f"[ERROR] Brak pliku klucza: {key_path}")
+        return encrypted_pass
+
+    try:
+        # Wywołanie dokładnie tego samego polecenia co w Bash
+        cmd = [
+            "openssl", "enc", "-aes-256-cbc", "-d", 
+            "-salt", "-pbkdf2", 
+            "-pass", f"file:{key_path}", 
+            "-a", "-A"
+        ]
+        
+        # Uruchamiamy proces, podając zaszyfrowany ciąg na stdin
+        process = subprocess.Popen(
+            cmd, 
+            stdin=subprocess.PIPE, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE
+        )
+        
+        decrypted, stderr = process.communicate(input=encrypted_pass.encode('utf-8'))
+        
+        if process.returncode == 0:
+            return decrypted.decode('utf-8')
+        else:
+            print(f"[ERROR] OpenSSL decrypt failed: {stderr.decode('utf-8')}")
+            return encrypted_pass # W razie błędu zwróć oryginał
+            
+    except Exception as e:
+        print(f"[ERROR] Decrypt exception: {e}")
+        return encrypted_pass
+# ==========================================
+
 # ========== UTIL: kolory + prosty logger ==========
 
 COLORS = {
@@ -415,6 +467,7 @@ class InternetMonitor(threading.Thread):
                 else:
                     ping_online = self._last_ping_result
 
+
                 if ping_online:
                     desired_interval = PING_CHECK_INTERVAL
 
@@ -651,16 +704,19 @@ class AccountWorkerPolling(threading.Thread):
                 ssl_context.verify_mode = ssl.CERT_NONE
                 debug_print(f"[{self.account['name']}] Weryfikacja certyfikatu SSL jest WYŁĄCZONA.", level="YELLOW")
 
+            # DECRYPT PASSWORD HERE
+            plain_password = decrypt_password_wrapper(self.account["password"])
+
             # ### ZMIANA ADAPTIVE TIMEOUT: Przekazujemy self.current_timeout do konstruktora ###
             if encryption_mode == "starttls":
                 debug_print(f"[POLLING] - [{self.account['name']}] Łączenie w trybie STARTTLS (timeout={self.current_timeout}s)...", level="GREEN")
                 self.imap = imaplib.IMAP4(self.account["host"], self.account["port"], timeout=self.current_timeout)
                 self.imap.starttls(ssl_context=ssl_context)
-                self.imap.login(self.account["login"], self.account["password"])
+                self.imap.login(self.account["login"], plain_password)
             else: # ssl
                 debug_print(f"[POLLING] - [{self.account['name']}] Łączenie w trybie SSL (timeout={self.current_timeout}s)...", level="GREEN")
                 self.imap = imaplib.IMAP4_SSL(self.account["host"], self.account["port"], ssl_context=ssl_context, timeout=self.current_timeout)
-                self.imap.login(self.account["login"], self.account["password"])
+                self.imap.login(self.account["login"], plain_password)
 
             with self._lock:
                 self.connected = True
@@ -975,6 +1031,9 @@ class AccountWorkerIdle(threading.Thread):
                 ssl_context.verify_mode = ssl.CERT_NONE
                 debug_print(f"[{self.account['name']}] Weryfikacja certyfikatu SSL jest WYŁĄCZONA.", level="YELLOW")
 
+            # DECRYPT PASSWORD HERE
+            plain_password = decrypt_password_wrapper(self.account["password"])
+
             if encryption_mode == "starttls":
                 debug_print(f"[IDLE] - [{self.account['name']}] Łączenie w trybie STARTTLS...", level=IDLE_EVENT_COLOR)
                 # 1. Stwórz klienta bez SSL i bez kontekstu
@@ -986,7 +1045,7 @@ class AccountWorkerIdle(threading.Thread):
                 self.imap = self.IMAPClient(self.account["host"], port=self.account["port"], ssl=True, ssl_context=ssl_context)
 
             debug_print(f"[IDLE] - [{self.account['name']}] Login…", level="CYAN")
-            self.imap.login(self.account["login"], self.account["password"])
+            self.imap.login(self.account["login"], plain_password)
             debug_print(f"[IDLE] - [{self.account['name']}] Połączono. Pobieram capabilities…", level="CYAN")
             capabilities = self.imap.capabilities()
             debug_print(f"[IDLE] - [{self.account['name']}] Capabilities: {capabilities}", level="CYAN")
@@ -1039,15 +1098,18 @@ class AccountWorkerIdle(threading.Thread):
                 ssl_context.verify_mode = ssl.CERT_NONE
                 debug_print(f"[{self.account['name']}] Weryfikacja certyfikatu SSL jest WYŁĄCZONA.", level="YELLOW")
 
+            # DECRYPT PASSWORD HERE
+            plain_password = decrypt_password_wrapper(self.account["password"])
+
             if encryption_mode == "starttls":
                 debug_print(f"[POLLING-FALLBACK] - [{self.account['name']}] Łączenie w trybie STARTTLS...", level="MAGENTA")
                 self._poll_imap = imaplib.IMAP4(self.account["host"], self.account["port"])
                 self._poll_imap.starttls(ssl_context=ssl_context)
-                self._poll_imap.login(self.account["login"], self.account["password"])
+                self._poll_imap.login(self.account["login"], plain_password)
             else: # ssl
                 debug_print(f"[POLLING-FALLBACK] - [{self.account['name']}] Łączenie w trybie SSL...", level="MAGENTA")
                 self._poll_imap = imaplib.IMAP4_SSL(self.account["host"], self.account["port"], ssl_context=ssl_context)
-                self._poll_imap.login(self.account["login"], self.account["password"])
+                self._poll_imap.login(self.account["login"], plain_password)
 
             debug_print(f"[POLLING-FALLBACK] - [{self.account['name']}] Połączono z IMAP.", level=POLLING_NOOP_OK_COLOR)
             return True

@@ -1,7 +1,7 @@
 #!/bin/bash
-# 3.CLI_Konfiguracja_kont.sh (v4.7-cli-variable-fix)
-# - Wersja terminalowa (CLI).
-# - FIX: Poprawiono błąd zmiennej '$new_name' na '$imp_name' w sekcji importu.
+# 3.CLI_Konfiguracja_kont.sh (v5.0-Secure-CLI)
+# - Wersja terminalowa (CLI) z pełnym szyfrowaniem.
+# - Zgodna z wersją GUI v2.6 (Hasło Główne + Secure Export/Import).
 
 # --- DETEKCJA I URUCHOMIENIE W TERMINALU ---
 if [ ! -t 0 ]; then
@@ -38,6 +38,25 @@ ACCOUNTS_JSON="$PROJECT_DIR/config/accounts.json"
 EMAIL_LUA="$PROJECT_DIR/lua/e-mail.lua"
 QUESTION_FLAG="$PROJECT_DIR/config/.question_3.START"
 START_SCRIPT="$SCRIPT_DIR/3.CLI_START_RESTART_skryptów_oraz_conky.sh"
+
+# --- ZMIENNE SZYFROWANIA I ŚCIEŻKI (ZGODNE Z GUI) ---
+OLD_CONFIG_DIR="$HOME/.config/conky-mail-secret-key"
+USER_CONFIG_DIR="$HOME/.config/Zupix-Py2Lua-Mail-conky"
+
+SECRET_KEY="$USER_CONFIG_DIR/.secret_key"
+MASTER_PASS_FILE="$USER_CONFIG_DIR/.master_hash"
+SECURITY_FLAG="$PROJECT_DIR/config/.security_decision_made"
+CHALLENGE_TEXT="ACCESS_GRANTED_VERIFIED"
+
+# --- AUTOMATYCZNA MIGRACJA STARYCH KLUCZY ---
+if [ -d "$OLD_CONFIG_DIR" ]; then
+    if [ ! -d "$USER_CONFIG_DIR" ]; then
+        mv "$OLD_CONFIG_DIR" "$USER_CONFIG_DIR"
+    else
+        cp -n "$OLD_CONFIG_DIR/"* "$USER_CONFIG_DIR/" 2>/dev/null || true
+        rm -rf "$OLD_CONFIG_DIR"
+    fi
+fi
 
 # --- BIBLIOTEKA FUNKCJI CLI ---
 C_RESET='\033[0m'; C_RED='\033[0;31m'; C_GREEN='\033[0;32m'; C_YELLOW='\033[0;33m'; C_CYAN='\033[0;36m'; C_BOLD='\033[1m'
@@ -76,8 +95,136 @@ prompt_password() {
 # --- SPRAWDZENIE ZALEŻNOŚCI ---
 if ! command -v jq &> /dev/null; then log_error "Narzędzie 'jq' nie jest zainstalowane. Zainstaluj je (np. sudo apt install jq)."; fi
 if ! command -v perl &> /dev/null; then log_error "Narzędzie 'perl' nie jest zainstalowane. Zainstaluj je."; fi
+if ! command -v openssl &> /dev/null; then log_error "Narzędzie 'openssl' nie jest zainstalowane. Zainstaluj je."; fi
 
-# --- FUNKCJE POMOCNICZE ---
+# ==========================================================
+#                 Funkcje SZYFROWANIA (Konta)
+# ==========================================================
+
+ensure_key_exists() {
+    mkdir -p "$USER_CONFIG_DIR"
+    if [ ! -f "$SECRET_KEY" ]; then
+        openssl rand -base64 32 > "$SECRET_KEY"
+        chmod 600 "$SECRET_KEY"
+    fi
+}
+
+encrypt_pass() {
+    local cleartext="$1"
+    [[ -z "$cleartext" ]] && echo "" && return
+    ensure_key_exists
+    echo -n "$cleartext" | openssl enc -aes-256-cbc -salt -pbkdf2 -pass file:"$SECRET_KEY" -a -A
+}
+
+decrypt_pass() {
+    local encrypted="$1"
+    [[ -z "$encrypted" ]] && echo "" && return
+    ensure_key_exists
+    local decrypted
+    decrypted=$(echo "$encrypted" | openssl enc -aes-256-cbc -d -salt -pbkdf2 -pass file:"$SECRET_KEY" -a -A 2>/dev/null || true)
+    
+    if [ -n "$decrypted" ]; then
+        echo "$decrypted"
+    else
+        echo "$encrypted"
+    fi
+}
+
+# ==========================================================
+#             Funkcje HASŁA GŁÓWNEGO (Master Pass CLI)
+# ==========================================================
+
+set_master_password() {
+    while true; do
+        echo
+        log_info "Ustawianie Hasła Głównego"
+        local p1=$(prompt_password "Nowe hasło")
+        local p2=$(prompt_password "Powtórz hasło")
+        
+        if [ -z "$p1" ]; then log_warn "Hasło nie może być puste."; continue; fi
+        if [ "$p1" != "$p2" ]; then log_warn "Hasła nie są identyczne."; continue; fi
+
+        ensure_key_exists # Upewnij się, że katalog istnieje
+        echo -n "$CHALLENGE_TEXT" | openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:"$p1" -a -A > "$MASTER_PASS_FILE"
+        chmod 600 "$MASTER_PASS_FILE"
+        
+        mkdir -p "$(dirname "$SECURITY_FLAG")"
+        touch "$SECURITY_FLAG"
+        
+        log_success "Hasło główne zostało ustawione."
+        return 0
+    done
+}
+
+verify_startup_security() {
+    # 1. Sprawdź hasło jeśli istnieje
+    if [ -f "$MASTER_PASS_FILE" ] && [ -s "$MASTER_PASS_FILE" ]; then
+        local attempts=0
+        while true; do
+            echo
+            log_warn "🔐 WYMAGANA AUTORYZACJA"
+            local input_pass=$(prompt_password "Podaj hasło główne")
+            
+            local file_content=$(cat "$MASTER_PASS_FILE")
+            local decrypted_check=$(echo "$file_content" | openssl enc -d -aes-256-cbc -salt -pbkdf2 -pass pass:"$input_pass" -a -A 2>/dev/null || true)
+
+            if [ "$decrypted_check" == "$CHALLENGE_TEXT" ]; then
+                log_success "Dostęp przyznany."
+                return 0
+            else
+                log_warn "Błędne hasło!"
+                attempts=$((attempts+1))
+                if [ $attempts -ge 3 ]; then
+                    log_error "Zbyt wiele nieudanych prób. Zamykanie."
+                fi
+            fi
+        done
+    fi
+
+    # 2. Sprawdź flagę decyzji
+    if [ -f "$SECURITY_FLAG" ]; then return 0; fi
+
+    # 3. Pierwsze uruchomienie
+    echo
+    log_info "Konfiguracja zabezpieczeń"
+    local choice=$(prompt_choice "Czy chcesz zabezpieczyć konfigurator hasłem głównym?" "T/N" "N")
+    
+    if [[ "${choice^^}" == "T" ]]; then
+        if ! set_master_password; then
+            mkdir -p "$(dirname "$SECURITY_FLAG")"
+            touch "$SECURITY_FLAG"
+        fi
+    else
+        mkdir -p "$(dirname "$SECURITY_FLAG")"
+        touch "$SECURITY_FLAG"
+    fi
+}
+
+manage_master_password() {
+    echo
+    echo "Zarządzanie hasłem głównym:"
+    # Używamy prostego select dla menu
+    local options=("Zmień hasło główne" "Usuń hasło główne (wyłącz ochronę)" "Wróć")
+    PS3="Wybierz opcję: "
+    select opt in "${options[@]}"; do
+        case "$opt" in
+            "Zmień hasło główne") set_master_password; break ;;
+            "Usuń hasło główne"*) 
+                local conf=$(prompt_choice "Czy na pewno usunąć hasło? Program będzie niechroniony." "T/N" "N")
+                if [[ "${conf^^}" == "T" ]]; then
+                    rm -f "$MASTER_PASS_FILE"
+                    mkdir -p "$(dirname "$SECURITY_FLAG")"
+                    touch "$SECURITY_FLAG"
+                    log_success "Hasło główne usunięte."
+                fi
+                break ;;
+            "Wróć") break ;;
+            *) log_warn "Nieprawidłowa opcja." ;;
+        esac
+    done
+}
+
+# --- FUNKCJE POMOCNICZE (Oryginalne CLI) ---
 hex_to_lua_rgb() {
     local hex="${1#\#}"; if [ ${#hex} -eq 3 ]; then hex="${hex:0:1}${hex:0:1}${hex:1:1}${hex:1:1}${hex:2:1}${hex:2:1}"; fi
     if [ ${#hex} -ne 6 ]; then printf "{1.00, 1.00, 1.00}"; return; fi
@@ -89,26 +236,28 @@ validate_hex_color() { [[ "$1" =~ ^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$ ]]; }
 
 select_import_file() {
     local file=""
+    # Próba użycia GUI dialogs jeśli dostępne (tak jak w oryginale)
     if [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
         if command -v zenity &>/dev/null; then
-            file=$(zenity --file-selection --title="Wybierz plik accounts.json do importu" --file-filter="*.json" 2>/dev/null)
+            file=$(zenity --file-selection --title="Wybierz plik accounts.json do importu" --file-filter="*.json *.json.enc" 2>/dev/null)
             local ret=$?
             if [ $ret -eq 0 ]; then echo "$file"; return 0; fi
             echo ""; return 0
         elif command -v kdialog &>/dev/null; then
-            file=$(kdialog --getopenfilename . "*.json" 2>/dev/null)
+            file=$(kdialog --getopenfilename . "*.json *.json.enc" 2>/dev/null)
             local ret=$?
             if [ $ret -eq 0 ]; then echo "$file"; return 0; fi
             echo ""; return 0
         fi
         if command -v python3 &>/dev/null; then
             if python3 -c "import tkinter" &>/dev/null; then
-                file=$(python3 -c "import tkinter.filedialog as fd; import tkinter; root=tkinter.Tk(); root.withdraw(); print(fd.askopenfilename(filetypes=[('JSON', '*.json')]))" 2>/dev/null)
+                file=$(python3 -c "import tkinter.filedialog as fd; import tkinter; root=tkinter.Tk(); root.withdraw(); print(fd.askopenfilename(filetypes=[('JSON', '*.json'), ('Secure JSON', '*.json.enc')]))" 2>/dev/null)
                 echo "$file"
                 return 0
             fi
         fi
     fi
+    # Fallback to CLI prompt
     prompt_input "Ścieżka pliku" ""
 }
 
@@ -221,22 +370,29 @@ prompt_color() {
 }
 
 # --- GŁÓWNA PĘTLA PROGRAMU ---
+
+# START SECURITY
+verify_startup_security
+
 while true; do
     clear
     load_accounts_to_array
-    echo -e "${C_BOLD}--- Konfigurator Kont E-mail (CLI) ---${C_RESET}"
+    echo -e "${C_BOLD}--- Konfigurator Kont E-mail (CLI - Szyfrowany) ---${C_RESET}"
     
     OPTIONS=()
     if [ ${#accounts_array[@]} -gt 0 ]; then
         log_info "Istniejące konta:"
         for i in "${!accounts_array[@]}"; do
-            name=$(jq -r '.name' <<< "${accounts_array[$i]}"); login=$(jq -r '.login' <<< "${accounts_array[$i]}")
+            name=$(jq -r '.name' <<< "${accounts_array[$i]}")
+            login=$(jq -r '.login' <<< "${accounts_array[$i]}")
             OPTIONS+=("Konto: $name ($login)")
         done
     else
         log_warn "Nie skonfigurowano jeszcze żadnych kont."
     fi
-    OPTIONS+=("➕ Dodaj nowe konto" "📂 Importuj z pliku JSON" "🗑️ Usuń wszystkie konta" "❌ Zakończ")
+    
+    # Dodano opcje Export i Security
+    OPTIONS+=("➕ Dodaj nowe konto" "📂 Importuj (*.json.enc / *.json)" "📤 Eksportuj (Kopia)" "🔐 Zarządzaj hasłem głównym" "🗑️ Usuń wszystkie konta" "❌ Zakończ")
     echo
 
     PS3="$(echo -e "${C_YELLOW}Wybierz opcję: ${C_RESET}")"
@@ -259,10 +415,16 @@ while true; do
                 log_success "Konfiguracja zakończona."
                 exit 0
                 ;;
+            
+            "🔐 Zarządzaj hasłem głównym")
+                manage_master_password
+                read -p "Naciśnij Enter..."
+                break
+                ;;
 
             "➕ Dodaj nowe konto")
                 clear
-                log_info "Dodawanie nowego konta (pozostaw puste pole 'Nazwa', aby anulować)..."
+                log_info "Dodawanie nowego konta..."
                 new_name=$(prompt_input "Nazwa (unikalny klucz, bez spacji)" "")
                 [ -z "$new_name" ] && break
 
@@ -285,48 +447,60 @@ while true; do
                 insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = \{' "    \"$new_login\","
                 insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = \{' "    \"$new_name\","
 
+                # SZYFROWANIE HASŁA
+                encrypted_pass=$(encrypt_pass "$new_password")
+
                 json_base='{name: $n, host: $h, port: $p, login: $l, password: $pass, encryption: $enc}'
-                new_account_json=$(jq -n --arg n "$new_name" --arg h "$new_host" --argjson p "$new_port" --arg l "$new_login" --arg pass "$new_password" --arg enc "$new_encryption" "$json_base")
+                new_account_json=$(jq -n --arg n "$new_name" --arg h "$new_host" --argjson p "$new_port" --arg l "$new_login" --arg pass "$encrypted_pass" --arg enc "$new_encryption" "$json_base")
                 if [ "$new_encryption" = "starttls" ]; then new_account_json=$(echo "$new_account_json" | jq '. + {verify_cert: false}'); fi
                 
                 accounts_array+=("$new_account_json")
                 save_accounts_array
-                log_success "Konto '$new_name' zostało dodane (kolor: $COLOR_HEX)."
+                log_success "Konto '$new_name' zostało dodane (hasło zaszyfrowane)."
                 read -p "Naciśnij Enter, aby wrócić do menu..."
                 break
                 ;;
 
-            "📂 Importuj z pliku JSON")
+            "📂 Importuj (*.json.enc / *.json)")
                 clear
-                log_info "Wskaż ścieżkę do pliku JSON."
+                log_info "Wskaż ścieżkę do pliku (.json lub .json.enc)."
                 
                 IMPORT_FILE=$(select_import_file)
                 
-                if [ -z "$IMPORT_FILE" ]; then
-                    log_warn "Anulowano lub nie wybrano pliku."
-                    read -p "Naciśnij Enter..."
+                if [ -z "$IMPORT_FILE" ]; then log_warn "Anulowano."; break; fi
+                if [ ! -f "$IMPORT_FILE" ]; then log_warn "Plik nie istnieje: $IMPORT_FILE"; break; fi
+
+                # Wykrywanie szyfrowania (Secure Import) - POPRAWIONY NAGŁÓWEK U2F
+                HEADER=$(head -c 8 "$IMPORT_FILE")
+                JSON_CONTENT=""
+
+                if [[ "$HEADER" == "U2FsdGVk" ]]; then
+                    # Plik zaszyfrowany
+                    log_warn "Wykryto zaszyfrowaną kopię zapasową."
+                    DECRYPT_PASS=$(prompt_password "Podaj hasło transportowe")
+                    JSON_CONTENT=$(openssl enc -d -aes-256-cbc -salt -pbkdf2 -in "$IMPORT_FILE" -pass pass:"$DECRYPT_PASS" -a -A 2>/dev/null || true)
+                    
+                    if [ -z "$JSON_CONTENT" ]; then
+                        log_warn "Błąd deszyfrowania (złe hasło?)"
+                        read -p "Enter..."
+                        break
+                    fi
+                else
+                    JSON_CONTENT=$(cat "$IMPORT_FILE")
+                fi
+
+                if ! echo "$JSON_CONTENT" | jq -e . &>/dev/null; then
+                    log_warn "Treść nie jest poprawnym JSON-em."
+                    read -p "Enter..."
                     break
                 fi
 
-                if [ ! -f "$IMPORT_FILE" ]; then
-                     log_warn "Plik nie istnieje: $IMPORT_FILE"
-                     read -p "Naciśnij Enter..."
-                     break
-                fi
-
-                if ! jq -e . "$IMPORT_FILE" &>/dev/null; then
-                    log_warn "Wskazany plik nie jest poprawnym formatem JSON."
-                    read -p "Naciśnij Enter..."
-                    break
-                fi
-
-                log_info "Import z pliku: $IMPORT_FILE"
-                log_info "Konta o istniejących nazwach zostaną pominięte."
-                confirm=$(prompt_choice "Kontynuować?" "T/N" "T")
+                log_info "Plik poprawny. Konta o istniejących nazwach zostaną pominięte."
+                confirm=$(prompt_choice "Importować?" "T/N" "T")
                 if [[ "${confirm^^}" != "T" ]]; then break; fi
 
                 backup_configs
-                mapfile -t imported_items < <(jq -c '.[]' "$IMPORT_FILE" 2>/dev/null || true)
+                mapfile -t imported_items < <(echo "$JSON_CONTENT" | jq -c '.[]' 2>/dev/null || true)
                 
                 added_count=0
                 skipped_count=0
@@ -334,6 +508,7 @@ while true; do
                 for json_item in "${imported_items[@]}"; do
                     imp_name=$(jq -r '.name' <<< "$json_item")
                     imp_login=$(jq -r '.login' <<< "$json_item")
+                    imp_pass_raw=$(jq -r '.password' <<< "$json_item")
                     
                     if [ -z "$imp_name" ] || [ "$imp_name" == "null" ] || [ -z "$imp_login" ] || [ "$imp_login" == "null" ]; then
                         continue
@@ -358,13 +533,49 @@ while true; do
                     insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = \{' "    \"$imp_login\","
                     insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = \{' "    \"$imp_name\","
 
+                    # SZYFROWANIE HASŁA LOKALNYM KLUCZEM
+                    encrypted_imp_pass=$(encrypt_pass "$imp_pass_raw")
+                    json_item=$(echo "$json_item" | jq --arg p "$encrypted_imp_pass" '.password = $p')
+
                     accounts_array+=("$json_item")
                     added_count=$((added_count + 1))
                 done
 
                 save_accounts_array
-                log_success "Operacja zakończona. Zaimportowano: $added_count, Pominięto: $skipped_count"
+                log_success "Zakończono. Zaimportowano: $added_count, Pominięto: $skipped_count"
                 read -p "Naciśnij Enter..."
+                break
+                ;;
+
+            "📤 Eksportuj (Kopia zapasowa)")
+                clear
+                log_info "Eksport bezpieczny (hasła zostaną zaszyfrowane Twoim hasłem)."
+                export_file=$(prompt_input "Nazwa pliku wyjściowego" "backup_konta.json.enc")
+                
+                pass1=$(prompt_password "Ustaw hasło szyfrowania pliku")
+                pass2=$(prompt_password "Powtórz hasło")
+                
+                if [[ "$pass1" != "$pass2" || -z "$pass1" ]]; then
+                    log_warn "Hasła puste lub różne."
+                    read -p "Enter..."
+                    break
+                fi
+
+                TEMP_JSON="[]"
+                COUNT=${#accounts_array[@]}
+                
+                echo "Przetwarzanie..."
+                for ((i=0; i<COUNT; i++)); do
+                    acc="${accounts_array[$i]}"
+                    enc_pass=$(echo "$acc" | jq -r '.password')
+                    plain_pass=$(decrypt_pass "$enc_pass")
+                    TEMP_JSON=$(echo "$TEMP_JSON" | jq --argjson a "$acc" --arg p "$plain_pass" '. + [$a | .password=$p]')
+                done
+                
+                echo "$TEMP_JSON" | openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:"$pass1" -a -A > "$export_file"
+                
+                log_success "Zapisano do pliku: $export_file"
+                read -p "Enter..."
                 break
                 ;;
 
@@ -390,7 +601,7 @@ while true; do
                 ;;
 
             *)
-                # Obsługa edycji konta (gdy wybrano z listy kont)
+                # Obsługa edycji konta
                 if [[ -z "$opt" ]]; then log_warn "Nieprawidłowa opcja."; break; fi
                 
                 CHOICE=$((REPLY-1))
@@ -407,7 +618,16 @@ while true; do
                 select sub_opt in "Edytuj dane" "Usuń konto" "Przesuń w górę" "Przesuń w dół" "↩️ Wróć do menu"; do
                     case $sub_opt in
                         "Edytuj dane")
-                            host=$(jq -r '.host' <<< "$original_json"); port=$(jq -r '.port' <<< "$original_json"); login=$(jq -r '.login' <<< "$original_json"); password=$(jq -r '.password' <<< "$original_json"); encryption=$(jq -r '.encryption // "ssl"' <<< "$original_json")
+                            host=$(jq -r '.host' <<< "$original_json")
+                            port=$(jq -r '.port' <<< "$original_json")
+                            login=$(jq -r '.login' <<< "$original_json")
+                            
+                            # ODSZYFROWANIE HASŁA DO EDYCJI
+                            enc_pass=$(jq -r '.password' <<< "$original_json")
+                            dec_pass=$(decrypt_pass "$enc_pass")
+                            
+                            encryption=$(jq -r '.encryption // "ssl"' <<< "$original_json")
+                            
                             log_info "Edycja konta '$name_to_manage'. Wciśnij Enter, aby zachować starą wartość."
                             
                             new_name=$(prompt_input "Nazwa (klucz)" "$name_to_manage")
@@ -417,7 +637,7 @@ while true; do
                             select enc_opt in "ssl" "starttls"; do new_encryption=$enc_opt; break; done
                             new_login=$(prompt_input "Login (e-mail)" "$login")
                             new_password=$(prompt_password "Nowe hasło (puste = bez zmian)")
-                            [ -z "$new_password" ] && new_password=$password
+                            [ -z "$new_password" ] && new_password=$dec_pass
                             
                             change_color=$(prompt_choice "Chcesz wybrać nowy kolor?" "T/N" "N")
                             if [[ "${change_color^^}" == "T" ]]; then
@@ -434,8 +654,11 @@ while true; do
                             replace_in_block_literal_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = \{' "\"$login_to_manage\"" "\"$new_login\""
                             replace_in_block_literal_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = \{' "\"$name_to_manage\"" "\"$new_name\""
                             
+                            # PONOWNE SZYFROWANIE
+                            final_enc_pass=$(encrypt_pass "$new_password")
+
                             json_base='{name: $n, host: $h, port: $p, login: $l, password: $pass, encryption: $enc}'
-                            updated_json=$(jq -n --arg n "$new_name" --arg h "$new_host" --argjson p "$new_port" --arg l "$new_login" --arg pass "$new_password" --arg enc "$new_encryption" "$json_base")
+                            updated_json=$(jq -n --arg n "$new_name" --arg h "$new_host" --argjson p "$new_port" --arg l "$new_login" --arg pass "$final_enc_pass" --arg enc "$new_encryption" "$json_base")
                             if [ "$new_encryption" = "starttls" ]; then updated_json=$(echo "$updated_json" | jq '. + {verify_cert: false}'); fi
                             
                             accounts_array[$CHOICE]="$updated_json"

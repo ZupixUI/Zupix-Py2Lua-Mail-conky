@@ -26,13 +26,10 @@ then
         fi
     done
 
-    if [ -z "$TERM_CMD" ]
+if [ -z "$TERM_CMD" ]
     then
         # Awaryjnie, jeśli nie ma terminala.
-        if command -v zenity &>/dev/null
-        then
-            zenity --error --text="Nie znaleziono emulatora terminala, aby uruchomić ten skrypt."
-        fi
+        echo -e "Nie znaleziono emulatora terminala z listy. Aby uruchomić ten skrypt, odpal go ręcznie w swoim terminalu "
         exit 1
     fi
 
@@ -436,9 +433,9 @@ case "$DISTRO" in
 
     if [[ "$MAJOR_VER" == "21" || "$MAJOR_VER" == "22" ]]
     then
-      REQUIRED_PACKAGES=(conky-all wget lua5.4 liblua5.4-dev python3-venv jq fonts-noto-color-emoji)
+      REQUIRED_PACKAGES=(conky-all wget lua5.4 liblua5.4-dev python3-venv jq fonts-noto-color-emoji zenity)
     else
-      REQUIRED_PACKAGES=(conky-all wget lua5.3 liblua5.3-dev python3-venv jq fonts-noto-color-emoji)
+      REQUIRED_PACKAGES=(conky-all wget lua5.3 liblua5.3-dev python3-venv jq fonts-noto-color-emoji zenity)
     fi
     ;;
 
@@ -446,7 +443,7 @@ case "$DISTRO" in
     PM="apt-get"
     INSTALL="sudo $PM install -y"
     PREINSTALL_CMD="sudo apt-get update"
-    REQUIRED_PACKAGES=(conky-all wget python3-venv jq fonts-noto-color-emoji)
+    REQUIRED_PACKAGES=(conky-all wget python3-venv jq fonts-noto-color-emoji zenity)
 
     if [[ "$VERSION" =~ ^22(\.|$) || "$VERSION" =~ ^24(\.|$) ]]
     then
@@ -460,7 +457,7 @@ case "$DISTRO" in
     PM="apt-get"
     INSTALL="sudo $PM install -y"
     PREINSTALL_CMD="sudo apt-get update"
-    REQUIRED_PACKAGES=(conky-all wget python3-venv jq fonts-noto-color-emoji)
+    REQUIRED_PACKAGES=(conky-all wget python3-venv jq fonts-noto-color-emoji zenity)
 
     if [[ "$VERSION" =~ ^(11|12|13)(\.|$) ]]
     then
@@ -480,7 +477,7 @@ case "$DISTRO" in
     else
         EMOJI_PKG="google-noto-emoji-color-fonts"
     fi
-    REQUIRED_PACKAGES=(conky wget lua lua-devel jq "$EMOJI_PKG")
+    REQUIRED_PACKAGES=(conky wget lua lua-devel jq zenity "$EMOJI_PKG")
     ;;
 
   openmandriva*)
@@ -604,7 +601,7 @@ case "$DISTRO" in
     PM="pacman"
     INSTALL="sudo $PM -S --noconfirm --needed"
     PREINSTALL_CMD="sudo pacman -Sy"
-    REQUIRED_PACKAGES=(conky wget lua jq noto-fonts-emoji)
+    REQUIRED_PACKAGES=(conky wget lua jq noto-fonts-emoji zenity gtk4 libadwaita)
     ;;
 
   opensuse*|suse*)
@@ -616,26 +613,26 @@ case "$DISTRO" in
     then
         EMOJI_PKG="google-noto-coloremoji-fonts"
     fi
-    REQUIRED_PACKAGES=(conky wget lua jq "$EMOJI_PKG")
+    REQUIRED_PACKAGES=(conky wget lua jq zenity "$EMOJI_PKG")
     ;;
 
   solus)
     PM="eopkg"
     INSTALL="sudo $PM install -y"
     PREINSTALL_CMD="sudo eopkg update-repo"
-    REQUIRED_PACKAGES=(conky wget lua jq font-noto-emoji)
+    REQUIRED_PACKAGES=(conky wget lua jq font-noto-emoji zenity)
     ;;
 
   nixos)
-    log_info "NixOS wykryty. Zainstaluj ręcznie pakiety: conky, lua, wget, noto-fonts-emoji przez configuration.nix."
+    log_info "NixOS wykryty. Zainstaluj ręcznie pakiety: conky, lua, wget, noto-fonts-emoji oraz zenity przez configuration.nix."
     exit 0
     ;;
   
-  gentoo)
+gentoo)
     UNKNOWN_PM=1
     GENTOO_MODE=1
     # Lista z instrukcjami w formacie dla CLI (ANSI)
-    MANUAL_INSTRUCTIONS="${C_BOLD}app-admin/conky${C_RESET} - wymagane flagi USE: ${C_BOLD}lua-cairo${C_RESET}, ${C_BOLD}lua-cairo-xlib${C_RESET}, ${C_BOLD}bundled-toluapp${C_RESET}\n${C_BOLD}dev-lang/lua${C_RESET}\n${C_BOLD}net-misc/wget${C_RESET}\n${C_BOLD}app-misc/jq${C_RESET}\n${C_BOLD}media-fonts/noto-emoji${C_RESET} (lub inne, np. Google Fonts)\nPython venv (zazwyczaj wbudowany w ${C_BOLD}dev-lang/python${C_RESET})"
+    MANUAL_INSTRUCTIONS="${C_BOLD}app-admin/conky${C_RESET} - wymagane flagi USE: ${C_BOLD}lua-cairo${C_RESET}, ${C_BOLD}lua-cairo-xlib${C_RESET}, ${C_BOLD}bundled-toluapp${C_RESET}\n${C_BOLD}dev-lang/lua${C_RESET}\n${C_BOLD}net-misc/wget${C_RESET}\n${C_BOLD}app-misc/jq${C_RESET}\n${C_BOLD}gnome-extra/zenity${C_RESET}\n${C_BOLD}media-fonts/noto-emoji${C_RESET} (lub inne, np. Google Fonts)\nPython venv (zazwyczaj wbudowany w ${C_BOLD}dev-lang/python${C_RESET})"
     REQUIRED_PACKAGES=("manual_action_required")
     ;;
 
@@ -645,7 +642,7 @@ case "$DISTRO" in
 	  PM="apt-get"
       INSTALL="sudo $PM install -y"
       PREINSTALL_CMD="sudo apt-get update"
-	  REQUIRED_PACKAGES=(conky-all wget python3-venv jq fonts-noto-color-emoji)
+	  REQUIRED_PACKAGES=(conky-all wget python3-venv jq fonts-noto-color-emoji zenity)
 	  if apt-cache policy lua5.4 2>/dev/null | grep -q 'Candidate:[[:space:]]\+[0-9]'
       then
           REQUIRED_PACKAGES+=(lua5.4 liblua5.4-dev)
@@ -657,13 +654,13 @@ case "$DISTRO" in
       PM="dnf"
       INSTALL="sudo $PM install -y"
       PREINSTALL_CMD="sudo dnf makecache"
-      REQUIRED_PACKAGES=(conky wget lua lua-devel jq google-noto-emoji-color-fonts)
+      REQUIRED_PACKAGES=(conky wget lua lua-devel jq google-noto-emoji-color-fonts zenity)
     elif command -v pacman &>/dev/null
     then
       PM="pacman"
       INSTALL="sudo $PM -S --noconfirm --needed"
       PREINSTALL_CMD="sudo pacman -Sy"
-      REQUIRED_PACKAGES=(conky wget lua jq noto-fonts-emoji)
+      REQUIRED_PACKAGES=(conky wget lua jq noto-fonts-emoji zenity)
     elif command -v zypper &>/dev/null
     then
       PM="zypper"
@@ -671,17 +668,17 @@ case "$DISTRO" in
       PREINSTALL_CMD="sudo zypper refresh"
       EMOJI_PKG="noto-coloremoji-fonts"
       if ! zypper se -x "$EMOJI_PKG" | grep -q "$EMOJI_PKG"; then EMOJI_PKG="google-noto-coloremoji-fonts"; fi
-      REQUIRED_PACKAGES=(conky wget lua jq "$EMOJI_PKG")
+      REQUIRED_PACKAGES=(conky wget lua jq zenity "$EMOJI_PKG")
     elif command -v eopkg &>/dev/null
     then
       PM="eopkg"
       INSTALL="sudo $PM install -y"
       PREINSTALL_CMD="sudo eopkg update-repo"
-      REQUIRED_PACKAGES=(conky wget lua jq font-noto-emoji)
+      REQUIRED_PACKAGES=(conky wget lua jq font-noto-emoji zenity)
     else
-      # --- UNKNOWN PM FALLBACK ---
+# --- UNKNOWN PM FALLBACK ---
       UNKNOWN_PM=1
-      MANUAL_INSTRUCTIONS="${C_BOLD}conky${C_RESET} (z obsługą cairo)\n${C_BOLD}lua${C_RESET}\n${C_BOLD}wget${C_RESET}\n${C_BOLD}jq${C_RESET}\n${C_BOLD}fonts-noto-color-emoji${C_RESET} (lub podobna czcionka kolorowa)\n${C_BOLD}python venv${C_RESET} (zależnie od distro)"
+      MANUAL_INSTRUCTIONS="${C_BOLD}conky${C_RESET} (z obsługą cairo)\n${C_BOLD}lua${C_RESET}\n${C_BOLD}wget${C_RESET}\n${C_BOLD}jq${C_RESET}\n${C_BOLD}zenity${C_RESET}\n${C_BOLD}fonts-noto-color-emoji${C_RESET} (lub podobna czcionka kolorowa)\n${C_BOLD}python venv${C_RESET} (zależnie od distro)"
       REQUIRED_PACKAGES=("manual_action_required")
     fi
     ;;
@@ -717,7 +714,7 @@ do
         echo
         
         log_info "Wybierz akcję:"
-        echo "  [P] - Pomiń sprawdzanie zależności (Nie sprawdzaj pakietów, przejdź do Python venv)."
+        echo "  [P] - Pomiń sprawdzanie zależności (Nie sprawdzaj pakietów, przejdź do tworzenia Python venv)."
         echo "  [A] - Anuluj i zakończ skrypt."
         
         choice=$(prompt_choice "Twój wybór?" "P/A" "A")

@@ -1,5 +1,6 @@
 #!/bin/bash
 # 1.Instalacja_zależności.sh (v1.9 - Offline/Lib Support)
+# Fix dla openMandriva w sekcji nr. 4 - Usuwanie zamiennika zenity `qarma` psującego działanie skryptu.
 
 # ==========================================
 # 1. KONFIGURACJA ZMIENNYCH
@@ -135,8 +136,30 @@ is_pkg_installed() {
 # 4. TRYB AWARYJNY: BRAK ZENITY
 # ==========================================
 
-# --- TRYB AWARYJNY: Zenity nie jest zainstalowane (otwieramy terminal z instrukcją) ---
-if ! command -v zenity &>/dev/null; then
+# --- Funkcja sprawdzająca poprawność instalacji Zenity ---
+# Naprawia problem OpenMandriva (gdzie 'zenity' to wrapper, a GUI jest w 'zenity-gtk')
+check_zenity_status() {
+    # 1. Podstawowe sprawdzenie czy polecenie istnieje
+    if ! command -v zenity &>/dev/null; then
+        return 1
+    fi
+
+# 2. Specjalny wyjątek dla OpenMandriva
+    if [ -f /etc/openmandriva-release ] || grep -qi "OpenMandriva" /etc/os-release 2>/dev/null; then
+        if command -v rpm &>/dev/null; then
+            # POPRAWKA: Jeśli qarma jest w systemie, wymuszamy błąd (reinstalację)
+            if rpm -q qarma &>/dev/null; then return 1; fi
+            
+            # Sprawdzenie obecności zenity-gtk
+            rpm -q zenity-gtk &>/dev/null || return 1
+        fi
+    fi
+    
+    return 0
+}
+
+# --- TRYB AWARYJNY: Zenity nie jest zainstalowane LUB jest niekompletne (OpenMandriva) ---
+if ! check_zenity_status; then
     if [[ "$ZENITY_INSTALLED_ONCE" == "1" ]]; then
         echo "🔁 Skrypt już próbował zainstalować zenity. Uruchom go ponownie, jeśli instalacja się powiodła."
         exit 1
@@ -156,8 +179,9 @@ if ! command -v zenity &>/dev/null; then
             PRE_CMD="sudo pacman -Sy"
             INSTALL_CMD="sudo pacman -S --noconfirm zenity gtk4 libadwaita"
             ;;
-        openmandriva*)
-            PRE_CMD="sudo dnf makecache"
+		openmandriva*)
+            # POPRAWKA: Usuwamy qarma przed odświeżeniem cache
+            PRE_CMD="sudo dnf remove -y qarma; sudo dnf makecache"
             INSTALL_CMD="sudo dnf install -y zenity-gtk"
             ;;
         mageia*)
@@ -184,7 +208,7 @@ if ! command -v zenity &>/dev/null; then
             open_in_terminal_async "echo 'Na NixOS dołącz zenity w configuration.nix (environment.systemPackages).' ; echo ; echo 'Przykład: environment.systemPackages = with pkgs; [ zenity ];' ; echo ; read -r -p 'Naciśnij Enter, aby zamknąć...'"
             exit 1
             ;;
-gentoo*)
+        gentoo*)
             # Dedykowana pętla dla Gentoo
             RUN_GENTOO='
                 FIRST_RUN=1
@@ -219,15 +243,16 @@ gentoo*)
             # WYŁĄCZAMY TRAP, żeby "command -v" zwracający błąd nie zabił skryptu
             trap - ERR
 
-            # Pętla działa dopóki proces terminala żyje (dzięki poprawce --disable-factory)
+            # Pętla działa dopóki proces terminala żyje
             while kill -0 "$pid" 2>/dev/null; do
                 hash -r 2>/dev/null
-                if command -v zenity &>/dev/null; then break; fi
+                # Używamy nowej funkcji check_zenity_status zamiast command -v
+                if check_zenity_status; then break; fi
                 sleep 1
             done
             
             hash -r 2>/dev/null
-            if command -v zenity &>/dev/null; then 
+            if check_zenity_status; then 
                 exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"
             else
                 exit 1
@@ -260,7 +285,7 @@ gentoo*)
                 3) PRE_CMD="sudo dnf makecache";     INSTALL_CMD="sudo dnf install -y zenity";;
                 4) PRE_CMD="sudo zypper refresh";    INSTALL_CMD="sudo zypper install -y zenity";;
                 5) PRE_CMD="sudo eopkg update-repo"; INSTALL_CMD="sudo eopkg install zenity";;
-                6) PRE_CMD="sudo dnf makecache";     INSTALL_CMD="sudo dnf install -y zenity-gtk";;
+				6) PRE_CMD="sudo dnf remove -y qarma; sudo dnf makecache"; INSTALL_CMD="sudo dnf install -y zenity-gtk";;
                 7) PRE_CMD="su -c \"dnf makecache\""; INSTALL_CMD="su -c \"dnf install -y zenity\"";;
                 8) 
                    echo; echo -e "\033[0;35m\033[1m💜 Gentoo: Instalacja ręczna 💜\033[0m"
@@ -268,7 +293,7 @@ gentoo*)
                    while ! command -v zenity &>/dev/null; do
                        read -rp "Naciśnij Enter po zainstalowaniu zenity..." _
                    done
-                   exit 0 # Wyjście z terminala, główny skrypt przeładuje się
+                   exit 0 
                    ;;
                 *) PRE_CMD="sudo apt-get update";    INSTALL_CMD="sudo apt-get install -y zenity";;
             esac
@@ -284,17 +309,29 @@ gentoo*)
         '
         pid=$(open_in_terminal_async "bash -lc $(printf %q "$RUN_IN_TERM")" 0)
         for _ in $(seq 1 600); do
-            if command -v zenity &>/dev/null; then exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"; fi
+            # Używamy check_zenity_status, aby nie przeładować skryptu zbyt wcześnie na OM
+            if check_zenity_status; then exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"; fi
             if ! kill -0 "$pid" 2>/dev/null; then break; fi
             sleep 1
         done
-        if command -v zenity &>/dev/null; then exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"; fi
+        if check_zenity_status; then exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"; fi
         exit 0
     fi
 
-    # Normalna ścieżka: znamy dystrybucję (i nie jest to Gentoo, bo Gentoo obsłużono wyżej w case)
+# Normalna ścieżka: znamy dystrybucję (i nie jest to Gentoo)
+    # 1. Domyślny komunikat
+    MSG_HEADER="Brakuje wymaganego programu ZENITY - (GUI)."
+
+    # 2. Sprawdzenie czy mamy do czynienia z qarmą (OpenMandriva)
+    # Jeśli rpm istnieje i pakiet qarma jest zainstalowany -> zmieniamy komunikat
+    if command -v rpm &>/dev/null && rpm -q qarma &>/dev/null; then
+        MSG_HEADER="Brakuje wymaganego programu ZENITY - (GUI).\n\nSpecjalny wyjątek dla OpenMandriva:\nUsuwanie zamiennika zenity 'qarma', który psuje skrypt + instalacja pełnego 'zenity-gtk'."
+    fi
+
+    # 3. Uruchomienie z dynamicznym komunikatem
+    # Używamy echo -e, aby obsłużyć znaki nowej linii \n w komunikacie specjalnym
     RUN_IN_TERM="
-        echo; echo 'Brakuje wymaganego programu ZENITY - (GUI).'; echo 'Zostanie uruchomione następujące polecenie instalacyjne:'; echo
+        echo; echo -e '$MSG_HEADER'; echo; echo 'Zostanie uruchomione następujące polecenie instalacyjne:'; echo
         echo '    ${PRE_CMD} ; ${INSTALL_CMD}'; echo
         read -rp 'Naciśnij Enter, aby rozpocząć instalację...' _
         ${PRE_CMD} ; ${INSTALL_CMD}
@@ -302,11 +339,12 @@ gentoo*)
     "
     pid=$(open_in_terminal_async "bash -lc $(printf %q "$RUN_IN_TERM")" 0)
     for _ in $(seq 1 600); do
-        if command -v zenity &>/dev/null; then exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"; fi
+        # Używamy check_zenity_status, aby upewnić się, że zenity-gtk faktycznie już jest
+        if check_zenity_status; then exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"; fi
         if ! kill -0 "$pid" 2>/dev/null; then break; fi
         sleep 1
     done
-    if command -v zenity &>/dev/null; then exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"; fi
+    if check_zenity_status; then exec env ZENITY_INSTALLED_ONCE=1 "$0" "$@"; fi
     exit 0
 fi
 
