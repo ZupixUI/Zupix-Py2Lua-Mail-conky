@@ -1,8 +1,7 @@
 #!/bin/bash
-# CLI_Oznacz_n_wiadomości_jako_nieprzeczytane.sh (v5.6-cli-readable-fix)
+# CLI_Oznacz_n_wiadomości_jako_nieprzeczytane.sh (v6.0-cli-crypto)
 # - Przystosowano do uruchamiania z podkatalogu 'CLI'.
-# - Skrypt zmienia katalog roboczy na ROOT projektu.
-# - Zastosowano czytelne formatowanie heredoc i potoków.
+# - Obsługa szyfrowania OpenSSL i weryfikacji hasła głównego.
 
 # --- DETEKCJA I URUCHOMIENIE W TERMINALU (gdy kliknięty z GUI) ---
 if [ ! -t 0 ]
@@ -24,7 +23,6 @@ then
         exit 1
     fi
 
-    # Pobranie bezwzględnej ścieżki do skryptu
     SCRIPT_PATH=$(readlink -f "${BASH_SOURCE[0]}")
     CMD="bash \"$SCRIPT_PATH\"; echo; read -rp 'Skrypt zakończył działanie. Naciśnij Enter, aby zamknąć to okno...'"
     
@@ -104,10 +102,15 @@ prompt_input() {
 }
 # --- KONIEC BIBLIOTEKI ---
 
-# --- ŚCIEŻKI (względne do PROJECT_DIR) ---
+# --- ŚCIEŻKI I ZMIENNE SZYFROWANIA ---
 PYTHON_SCRIPT="./py/ZupixPyMail.py"
 SOUND_FOLDER="./sound"
 ERROR_SOUND="$SOUND_FOLDER/error.wav"
+
+USER_CONFIG_DIR="$HOME/.config/Zupix-Py2Lua-Mail-conky"
+SECRET_KEY_FILE="$USER_CONFIG_DIR/.secret_key"
+MASTER_PASS_FILE="$USER_CONFIG_DIR/.master_hash"
+CHALLENGE_TEXT="ACCESS_GRANTED_VERIFIED"
 
 play_error_sound() {
   if [[ -f "$ERROR_SOUND" ]]; then
@@ -119,8 +122,45 @@ play_error_sound() {
   fi
 }
 
+# --- NOWOŚĆ: Weryfikacja hasła głównego (CLI) ---
+if [ -f "$MASTER_PASS_FILE" ] && [ -s "$MASTER_PASS_FILE" ]; then
+    AUTH_OK=0
+    clear
+    log_info "Wykryto zaszyfrowane konta."
+    
+    for i in {1..3}; do
+        echo -ne "${C_YELLOW}Podaj hasło główne (próba $i/3): ${C_RESET}"
+        read -s INPUT_PASS
+        echo "" # nowa linia po read -s
+        
+        if [ -z "$INPUT_PASS" ]; then
+             log_error "Nie podano hasła."
+             continue
+        fi
+
+        # Próba odszyfrowania pliku weryfikacyjnego (POPRAWKA: usunięcie null bytes)
+        FILE_CONTENT=$(cat "$MASTER_PASS_FILE")
+        DECRYPTED_CHECK=$(echo "$FILE_CONTENT" | openssl enc -d -aes-256-cbc -salt -pbkdf2 -pass pass:"$INPUT_PASS" -a -A 2>/dev/null | tr -d '\0' || true)
+
+        if [ "$DECRYPTED_CHECK" == "$CHALLENGE_TEXT" ]; then
+            AUTH_OK=1
+            log_success "Autoryzacja pomyślna."
+            echo
+            break
+        else
+            play_error_sound
+            log_error "Błąd: Nieprawidłowe hasło główne."
+        fi
+    done
+    
+    if [ "$AUTH_OK" -eq 0 ]; then
+        log_error "Zbyt wiele nieudanych prób autoryzacji. Przerywam."
+        read -rp "Naciśnij Enter..."
+        exit 1
+    fi
+fi
+
 # --- Pytanie o liczbę maili ---
-clear
 log_info "Ten skrypt oznaczy określoną liczbę najnowszych maili jako nieprzeczytane na każdym skonfigurowanym koncie."
 echo
 
@@ -154,6 +194,7 @@ draw_progress_bar() {
 # --- Wywołanie skryptu Pythona ---
 export MAILS_TO_MARK
 export PYTHON_SCRIPT
+export SECRET_KEY_FILE
 
 draw_progress_bar 0
 
@@ -161,18 +202,44 @@ draw_progress_bar 0
 #  POCZĄTEK BLOKU PYTHON
 # ==========================================================
 {
-    # Uruchomienie Pythona (kod przekazywany przez here-doc)
-    # Python dziedziczy bieżący katalog roboczy (PROJECT_DIR)
     python3 -u - <<'EOF'
 import imaplib
 import sys
 import json
 import os
+import subprocess
 
-# Pobieramy liczbę maili z ENV
+# --- Funkcja deszyfrująca ---
+def decrypt_pass(encrypted_pass):
+    if not encrypted_pass or not encrypted_pass.startswith("U2FsdGVkX1"):
+        return encrypted_pass
+    
+    key_file = os.getenv("SECRET_KEY_FILE", "")
+    if not key_file or not os.path.exists(key_file):
+        return None
+
+    try:
+        cmd = [
+            'openssl', 'enc', '-d', '-aes-256-cbc', 
+            '-salt', '-pbkdf2', 
+            '-pass', f'file:{key_file}', 
+            '-a', '-A'
+        ]
+        proc = subprocess.Popen(
+            cmd, 
+            stdin=subprocess.PIPE, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE
+        )
+        out, err = proc.communicate(input=encrypted_pass.encode('utf-8'))
+        
+        if proc.returncode != 0:
+            return None
+        return out.decode('utf-8')
+    except Exception:
+        return None
+
 MAILS_TO_MARK = int(os.getenv("MAILS_TO_MARK", "1"))
-
-# Pobieramy bieżący katalog roboczy (który jest PROJECT_DIR)
 base_dir = os.getcwd()
 config_path = os.path.join(base_dir, "config", "accounts.json")
 
@@ -189,34 +256,45 @@ if not accounts:
     print("PROGRESS:100", flush=True)
     sys.exit(1)
 
+# Lista do przechowywania danych po fazie 1: {data, pass_ready, count}
 per_account = []
 total_work = 0
 
-# Faza 1: Zliczanie pracy do wykonania
+# Faza 1: Zliczanie pracy i deszyfrowanie
 for acc in accounts:
     count = 0
-    try:
-        if acc.get("encryption", "ssl") == "starttls":
-            imap = imaplib.IMAP4(acc["host"], int(acc["port"]))
-            imap.starttls()
-        else:
-            imap = imaplib.IMAP4_SSL(acc["host"], int(acc["port"]))
-        
-        imap.login(acc["login"], acc["password"])
-        imap.select("INBOX", readonly=True)
-        typ, data = imap.uid('SEARCH', None, 'ALL')
-        if typ == "OK":
-            all_uids = (data[0] or b"").split()
-            count = min(MAILS_TO_MARK, len(all_uids))
-        imap.logout()
-    except Exception:
-        count = 0
+    raw_pass = acc["password"]
+    password = decrypt_pass(raw_pass)
+    
+    if password is None:
+        count = 0 # Błąd deszyfrowania
+    else:
+        try:
+            if acc.get("encryption", "ssl") == "starttls":
+                imap = imaplib.IMAP4(acc["host"], int(acc["port"]))
+                imap.starttls()
+            else:
+                imap = imaplib.IMAP4_SSL(acc["host"], int(acc["port"]))
+            
+            imap.login(acc["login"], password)
+            imap.select("INBOX", readonly=True)
+            typ, data = imap.uid('SEARCH', None, 'ALL')
+            if typ == "OK":
+                all_uids = (data[0] or b"").split()
+                count = min(MAILS_TO_MARK, len(all_uids))
+            imap.logout()
+        except Exception:
+            count = 0
     
     total_work += count if count > 0 else 1
-    per_account.append((acc, count))
+    per_account.append({
+        "data": acc,
+        "pass_ready": password,
+        "count": count
+    })
 
 if total_work <= 0:
-    print("[INFO]Brak pracy do wykonania (puste INBOXy?).", flush=True)
+    print("[INFO]Brak pracy do wykonania (puste INBOXy lub błędy).", flush=True)
     print("PROGRESS:100", flush=True)
     sys.exit(0)
 
@@ -228,8 +306,18 @@ def emit_progress():
 print("PROGRESS:0", flush=True)
 
 # Faza 2: Wykonywanie operacji
-for (acc, count_to_process) in per_account:
-    account_name = acc["name"]
+for item in per_account:
+    acc = item["data"]
+    password = item["pass_ready"]
+    count_to_process = item["count"]
+    account_name = acc.get("name", "Konto")
+
+    if password is None:
+        print(f"[ERR][{account_name}]: Błąd deszyfrowania hasła.", flush=True)
+        done_work += (count_to_process if count_to_process > 0 else 1)
+        emit_progress()
+        continue
+
     try:
         if acc.get("encryption", "ssl") == "starttls":
             imap = imaplib.IMAP4(acc["host"], int(acc["port"]))
@@ -237,52 +325,48 @@ for (acc, count_to_process) in per_account:
         else:
             imap = imaplib.IMAP4_SSL(acc["host"], int(acc["port"]))
 
-        imap.login(acc["login"], acc["password"])
+        imap.login(acc["login"], password)
         status, _ = imap.select("INBOX", readonly=False)
         if status != "OK":
             print(f"[ERR][{account_name}]: Nie można otworzyć INBOX w trybie zapisu.", flush=True)
-            done_work += 1
+            done_work += (count_to_process if count_to_process > 0 else 1)
             emit_progress()
             continue
 
         status, data = imap.uid('SEARCH', None, 'ALL')
         if status != "OK":
             print(f"[ERR][{account_name}]: Nie można pobrać listy maili.", flush=True)
-            done_work += 1
+            done_work += (count_to_process if count_to_process > 0 else 1)
             emit_progress()
             continue
 
         uids = (data[0] or b"").split()
         if not uids or count_to_process == 0:
             print(f"[INFO][{account_name}]: Brak wiadomości do oznaczenia.", flush=True)
-            done_work += 1
+            done_work += (count_to_process if count_to_process > 0 else 1)
             emit_progress()
             continue
 
         latest_uids = uids[-count_to_process:]
-        ok_count, err_count = 0, 0
-        for uid in latest_uids:
-            try:
-                # Oznaczanie jako nieprzeczytane (usuwanie flagi \Seen)
-                status, _ = imap.uid('STORE', uid, '-FLAGS.SILENT', r'(\Seen)')
-                if status == "OK":
-                    ok_count += 1
-                else:
-                    err_count += 1
-            except Exception:
-                err_count += 1
-            done_work += 1
-            emit_progress()
+        
+        # Masowe oznaczanie (optymalizacja)
+        uids_str = b','.join(latest_uids)
+        try:
+            status2, _ = imap.uid('STORE', uids_str, '-FLAGS.SILENT', r'(\Seen)')
+            if status2 == "OK":
+                print(f"[OK][{account_name}]: Oznaczono jako nieprzeczytane --> {len(latest_uids)} wiadomości.", flush=True)
+            else:
+                print(f"[ERR][{account_name}]: Błąd serwera przy oznaczaniu.", flush=True)
+        except Exception as e:
+            print(f"[ERR][{account_name}]: Wyjątek: {e}", flush=True)
 
-        if err_count == 0:
-            print(f"[OK][{account_name}]: Oznaczono jako nieprzeczytane --> {ok_count} wiadomości.", flush=True)
-        else:
-            print(f"[ERR][{account_name}]: Sukces: {ok_count}, Błędy: {err_count}.", flush=True)
+        done_work += count_to_process
+        emit_progress()
         imap.logout()
 
     except Exception as e:
         print(f"[ERR][{account_name}]: Wystąpił błąd: {e}", flush=True)
-        done_work += 1
+        done_work += (count_to_process if count_to_process > 0 else 1)
         emit_progress()
 
 print("PROGRESS:100", flush=True)
@@ -294,7 +378,6 @@ do
         percentage="${line#PROGRESS:}"
         draw_progress_bar "$percentage"
     else
-        # Czyścimy tekst, jeśli zawierał nawiasy kwadratowe z typem logu
         plain_text="${line#\[*\]}"
         
         case "$line" in

@@ -1,10 +1,9 @@
 #!/bin/bash
-# CLI_Oznacz_wszystkie_wiadomości_jako_przeczytane.sh (v6.2-cli-readable-fix)
+# CLI_Oznacz_wszystkie_wiadomości_jako_przeczytane.sh (v6.2-cli-crypto)
 # - Przystosowano do uruchamiania z podkatalogu 'CLI'.
-# - Skrypt zmienia katalog roboczy na ROOT projektu.
-# - Zastosowano czytelne formatowanie heredoc i potoków.
+# - Obsługa szyfrowania OpenSSL i weryfikacji hasła głównego.
 
-# --- DETEKCJA I URUCHOMIENIE W TERMINALU (gdy kliknięty z GUI) ---
+# --- DETEKCJA I URUCHOMIENIE W TERMINALU ---
 if [ ! -t 0 ]
 then
     TERMINALS=(gnome-terminal xfce4-terminal konsole tilix mate-terminal x-terminal-emulator xterm)
@@ -56,7 +55,7 @@ then
     exit 0
 fi
 
-# --- USTAWIENIE KATALOGU ROBOCZEGO NA GŁÓWNY PROJEKT ---
+# --- USTAWIENIE KATALOGU ROBOCZEGO ---
 SCRIPT_PATH=$(readlink -f "${BASH_SOURCE[0]}")
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -95,8 +94,63 @@ log_error() {
 }
 # --- KONIEC BIBLIOTEKI ---
 
-# --- ŚCIEŻKI (względne do PROJECT_DIR) ---
+# --- ŚCIEŻKI I ZMIENNE SZYFROWANIA ---
 PYTHON_SCRIPT="./py/ZupixPyMail.py"
+SOUND_FOLDER="./sound"
+ERROR_SOUND="$SOUND_FOLDER/error.wav"
+
+USER_CONFIG_DIR="$HOME/.config/Zupix-Py2Lua-Mail-conky"
+SECRET_KEY_FILE="$USER_CONFIG_DIR/.secret_key"
+MASTER_PASS_FILE="$USER_CONFIG_DIR/.master_hash"
+CHALLENGE_TEXT="ACCESS_GRANTED_VERIFIED"
+
+play_error_sound() {
+  if [[ -f "$ERROR_SOUND" ]]; then
+    if command -v paplay &> /dev/null; then
+      paplay "$ERROR_SOUND" &
+    elif command -v aplay &> /dev/null; then
+      aplay -q "$ERROR_SOUND" &
+    fi
+  fi
+}
+
+# --- NOWOŚĆ: Weryfikacja hasła głównego (CLI) ---
+clear
+if [ -f "$MASTER_PASS_FILE" ] && [ -s "$MASTER_PASS_FILE" ]; then
+    AUTH_OK=0
+    log_info "Wykryto zaszyfrowane konta."
+    
+    for i in {1..3}; do
+        echo -ne "${C_YELLOW}Podaj hasło główne (próba $i/3): ${C_RESET}"
+        read -s INPUT_PASS
+        echo ""
+        
+        if [ -z "$INPUT_PASS" ]; then
+             log_error "Nie podano hasła."
+             continue
+        fi
+
+        # Próba odszyfrowania pliku weryfikacyjnego (POPRAWKA: usunięcie null bytes)
+        FILE_CONTENT=$(cat "$MASTER_PASS_FILE")
+        DECRYPTED_CHECK=$(echo "$FILE_CONTENT" | openssl enc -d -aes-256-cbc -salt -pbkdf2 -pass pass:"$INPUT_PASS" -a -A 2>/dev/null | tr -d '\0' || true)
+
+        if [ "$DECRYPTED_CHECK" == "$CHALLENGE_TEXT" ]; then
+            AUTH_OK=1
+            log_success "Autoryzacja pomyślna."
+            echo
+            break
+        else
+            play_error_sound
+            log_error "Błąd: Nieprawidłowe hasło główne."
+        fi
+    done
+    
+    if [ "$AUTH_OK" -eq 0 ]; then
+        log_error "Zbyt wiele nieudanych prób autoryzacji. Przerywam."
+        read -rp "Naciśnij Enter..."
+        exit 1
+    fi
+fi
 
 # --- Tekstowy pasek postępu ---
 draw_progress_bar() {
@@ -113,25 +167,55 @@ draw_progress_bar() {
 }
 
 # --- GŁÓWNA LOGIKA ---
-clear
 log_info "Rozpoczynam oznaczanie wszystkich nieprzeczytanych wiadomości jako przeczytane..."
 echo
 
 export PYTHON_SCRIPT
+export SECRET_KEY_FILE
+
 draw_progress_bar 0
 
 # ==========================================================
 #  POCZĄTEK BLOKU PYTHON
 # ==========================================================
 {
-    # Uruchomienie Pythona (kod przekazywany przez here-doc)
     python3 -u - <<'EOF'
 import imaplib
 import sys
 import json
 import os
+import subprocess
 
-# Ponieważ skrypt Bash zmienił katalog na PROJECT_DIR, os.getcwd() będzie wskazywać na główny folder.
+# --- Funkcja deszyfrująca ---
+def decrypt_pass(encrypted_pass):
+    if not encrypted_pass or not encrypted_pass.startswith("U2FsdGVkX1"):
+        return encrypted_pass
+    
+    key_file = os.getenv("SECRET_KEY_FILE", "")
+    if not key_file or not os.path.exists(key_file):
+        return None
+
+    try:
+        cmd = [
+            'openssl', 'enc', '-d', '-aes-256-cbc', 
+            '-salt', '-pbkdf2', 
+            '-pass', f'file:{key_file}', 
+            '-a', '-A'
+        ]
+        proc = subprocess.Popen(
+            cmd, 
+            stdin=subprocess.PIPE, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE
+        )
+        out, err = proc.communicate(input=encrypted_pass.encode('utf-8'))
+        
+        if proc.returncode != 0:
+            return None
+        return out.decode('utf-8')
+    except Exception:
+        return None
+
 base_dir = os.getcwd()
 config_path = os.path.join(base_dir, "config", "accounts.json")
 
@@ -158,6 +242,15 @@ for idx, acc in enumerate(accounts):
     progress_end = progress_per_account * (idx + 1)
     account_name = acc.get("name", "(nieznane konto)")
 
+    # Deszyfrowanie
+    raw_pass = acc["password"]
+    password = decrypt_pass(raw_pass)
+
+    if password is None:
+        print(f"[ERR][{account_name}]: Błąd deszyfrowania hasła.", flush=True)
+        print(f"PROGRESS:{int(progress_end)}", flush=True)
+        continue
+
     try:
         if acc.get("encryption", "ssl") == "starttls":
             imap = imaplib.IMAP4(acc["host"], int(acc["port"]))
@@ -165,7 +258,7 @@ for idx, acc in enumerate(accounts):
         else:
             imap = imaplib.IMAP4_SSL(acc["host"], int(acc["port"]))
 
-        imap.login(acc["login"], acc["password"])
+        imap.login(acc["login"], password)
         status, _ = imap.select("INBOX", readonly=False)
         if status != "OK":
             print(f"[ERR][{account_name}]: Nie można otworzyć INBOX w trybie zapisu.", flush=True)
@@ -185,10 +278,7 @@ for idx, acc in enumerate(accounts):
             imap.logout()
             continue
 
-        # Połącz UIDy w jeden string oddzielony przecinkami, aby wysłać jedną komendę
         uids_str = b','.join(uids)
-        
-        # Oznacz wszystkie znalezione wiadomości za jednym razem
         status, _ = imap.uid('STORE', uids_str, '+FLAGS.SILENT', r'(\Seen)')
 
         if status == "OK":
@@ -219,6 +309,7 @@ do
                 log_success "$plain_text"
                 ;;
             \[ERR\]*)
+                play_error_sound
                 log_error "$plain_text"
                 ;;
             \[INFO\]*)
