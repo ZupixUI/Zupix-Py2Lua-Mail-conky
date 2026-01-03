@@ -4,6 +4,12 @@ PYTHON_SCRIPT="./py/ZupixPyMail.py"
 SOUND_FOLDER="./sound"
 ERROR_SOUND="$SOUND_FOLDER/error.wav"
 
+# --- ZMIENNE SZYFROWANIA (Zgodne z konfiguratorem) ---
+USER_CONFIG_DIR="$HOME/.config/Zupix-Py2Lua-Mail-conky"
+SECRET_KEY_FILE="$USER_CONFIG_DIR/.secret_key"
+MASTER_PASS_FILE="$USER_CONFIG_DIR/.master_hash"
+CHALLENGE_TEXT="ACCESS_GRANTED_VERIFIED"
+
 play_error_sound() {
   if [[ -f "$ERROR_SOUND" ]]; then
     if command -v paplay &> /dev/null; then
@@ -26,6 +32,35 @@ if [[ ! "$MAILS_TO_MARK" =~ ^[1-9][0-9]*$ ]]; then
   exit 1
 fi
 
+# --- NOWOŚĆ: Weryfikacja Hasła Głównego (Jeśli istnieje) ---
+if [ -f "$MASTER_PASS_FILE" ] && [ -s "$MASTER_PASS_FILE" ]; then
+    AUTH_OK=0
+    for i in {1..3}; do
+        INPUT_PASS=$(zenity --password --title="Wymagana autoryzacja" --text="Wykryto zaszyfrowane konta.\nPodaj <b>Hasło Główne</b>, aby odblokować dostęp:")
+        
+        if [ $? -ne 0 ] || [ -z "$INPUT_PASS" ]; then
+            notify-send "Zupix-Py2Lua-Mail-conky" "Anulowano. Hasło jest wymagane do działania."
+            exit 1
+        fi
+        
+        # Próba odszyfrowania pliku weryfikacyjnego
+        FILE_CONTENT=$(cat "$MASTER_PASS_FILE")
+        DECRYPTED_CHECK=$(echo "$FILE_CONTENT" | openssl enc -d -aes-256-cbc -salt -pbkdf2 -pass pass:"$INPUT_PASS" -a -A 2>/dev/null || true)
+
+        if [ "$DECRYPTED_CHECK" == "$CHALLENGE_TEXT" ]; then
+            AUTH_OK=1
+            break
+        else
+            play_error_sound
+            zenity --error --text="Błąd autoryzacji! Podano nieprawidłowe Hasło Główne."
+        fi
+    done
+    
+    if [ "$AUTH_OK" -eq 0 ]; then
+        exit 1
+    fi
+fi
+
 # pliki tymczasowe na podsumowanie z markupem
 SUMMARY_OK=$(mktemp)
 SUMMARY_ERR=$(mktemp)
@@ -33,6 +68,7 @@ SUMMARY_INFO=$(mktemp)
 
 export PYTHON_SCRIPT
 export MAILS_TO_MARK
+export SECRET_KEY_FILE
 
 # Uwaga: python3 -u = unbuffered output
 python3 -u - <<'EOF' | while IFS= read -r line
@@ -41,6 +77,7 @@ import sys
 import json
 import os
 import html
+import subprocess
 
 # --- Parametry i kolory Pango ---
 ACC_COLOR = "#00bfff"   # nazwa konta
@@ -49,6 +86,38 @@ ERR_COLOR = "red"       # liczba błędów
 
 def esc(s):
     return html.escape(str(s), quote=True)
+
+# --- NOWOŚĆ: Funkcja deszyfrująca ---
+def decrypt_pass(encrypted_pass):
+    # Jeśli hasło nie ma nagłówka OpenSSL, zwracamy bez zmian (kompatybilność wsteczna)
+    if not encrypted_pass or not encrypted_pass.startswith("U2FsdGVkX1"):
+        return encrypted_pass
+    
+    key_file = os.getenv("SECRET_KEY_FILE", "")
+    if not key_file or not os.path.exists(key_file):
+        return None # Brak klucza = błąd
+
+    try:
+        # Używamy klucza z pliku .secret_key (tak jak konfigurator)
+        cmd = [
+            'openssl', 'enc', '-d', '-aes-256-cbc', 
+            '-salt', '-pbkdf2', 
+            '-pass', f'file:{key_file}', 
+            '-a', '-A'
+        ]
+        proc = subprocess.Popen(
+            cmd, 
+            stdin=subprocess.PIPE, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE
+        )
+        out, err = proc.communicate(input=encrypted_pass.encode('utf-8'))
+        
+        if proc.returncode != 0:
+            return None
+        return out.decode('utf-8')
+    except Exception:
+        return None
 
 MAILS_TO_MARK = int(os.getenv("MAILS_TO_MARK","1"))
 
@@ -73,29 +142,41 @@ per_account = []   # (name, host, port, login, password, encryption, count)
 total_work = 0
 for acc in accounts:
     cnt = 0
-    try:
-        if acc.get("encryption", "ssl") == "starttls":
-            imap = imaplib.IMAP4(acc["host"], int(acc["port"]))
-            imap.starttls()
-        else:
-            imap = imaplib.IMAP4_SSL(acc["host"], int(acc["port"]))
+    
+    # Deszyfrowanie hasła
+    raw_pass = acc["password"]
+    password = decrypt_pass(raw_pass)
+    
+    if password is None:
+         cnt = 0 # Błąd deszyfrowania - pomijamy w fazie liczenia
+    else:
+        try:
+            if acc.get("encryption", "ssl") == "starttls":
+                imap = imaplib.IMAP4(acc["host"], int(acc["port"]))
+                imap.starttls()
+            else:
+                imap = imaplib.IMAP4_SSL(acc["host"], int(acc["port"]))
 
-        imap.login(acc["login"], acc["password"])
-        imap.select("INBOX")
-        typ, data = imap.uid('SEARCH', None, 'ALL')
-        if typ == "OK":
-            all_uids = (data[0] or b"").split()
-            cnt = min(MAILS_TO_MARK, len(all_uids))
-        imap.logout()
-    except Exception:
-        cnt = 0
+            imap.login(acc["login"], password)
+            imap.select("INBOX")
+            typ, data = imap.uid('SEARCH', None, 'ALL')
+            if typ == "OK":
+                all_uids = (data[0] or b"").split()
+                cnt = min(MAILS_TO_MARK, len(all_uids))
+            imap.logout()
+        except Exception:
+            cnt = 0
     
     # Dodajemy do total_work liczbę maili, żeby pasek postępu miał skalę
     total_work += (cnt if cnt > 0 else 1)
-    per_account.append((acc["name"], acc["host"], acc["port"], acc["login"], acc["password"], acc.get("encryption", "ssl"), cnt))
+    per_account.append({
+        "data": acc,
+        "pass_ready": password,
+        "count": cnt
+    })
 
 if total_work <= 0:
-    print("[INFO]Brak pracy do wykonania (puste INBOXy?).", flush=True)
+    print("[INFO]Brak pracy do wykonania (puste INBOXy lub błąd deszyfrowania).", flush=True)
     print("PROGRESS:100", flush=True)
     sys.exit(0)
 
@@ -108,9 +189,24 @@ def emit_progress():
 
 print("PROGRESS:0", flush=True)
 
-for (name, host, port, login, password, encryption, cnt) in per_account:
+for item in per_account:
+    acc = item["data"]
+    password = item["pass_ready"]
+    cnt = item["count"]
+    
+    name = acc["name"]
+    host = acc["host"]
+    port = acc["port"]
+    login = acc["login"]
+    encryption = acc.get("encryption", "ssl")
+    
     name_safe = esc(name)
     name_markup = f"<b><span foreground='{ACC_COLOR}'>{name_safe}</span></b>"
+
+    if password is None:
+        print(f"[ERR]{name_markup}: Błąd deszyfrowania hasła.", flush=True)
+        done += (cnt if cnt > 0 else 1); emit_progress()
+        continue
 
     try:
         if encryption == "starttls":

@@ -2,8 +2,13 @@
 
 PYTHON_SCRIPT="./py/ZupixPyMail.py"
 SOUND_FOLDER="./sound"
-# --- NOWOŚĆ: Ścieżka do pliku dźwiękowego (wyrównanie z resztą skryptów) ---
 ERROR_SOUND="$SOUND_FOLDER/error.wav"
+
+# --- ZMIENNE SZYFROWANIA (Zgodne z konfiguratorem) ---
+USER_CONFIG_DIR="$HOME/.config/Zupix-Py2Lua-Mail-conky"
+SECRET_KEY_FILE="$USER_CONFIG_DIR/.secret_key"
+MASTER_PASS_FILE="$USER_CONFIG_DIR/.master_hash"
+CHALLENGE_TEXT="ACCESS_GRANTED_VERIFIED"
 
 # --- NOWOŚĆ: Funkcja do odtwarzania dźwięku błędu ---
 play_error_sound() {
@@ -16,6 +21,34 @@ play_error_sound() {
   fi
 }
 
+# --- NOWOŚĆ: Weryfikacja Hasła Głównego (Jeśli istnieje) ---
+if [ -f "$MASTER_PASS_FILE" ] && [ -s "$MASTER_PASS_FILE" ]; then
+    AUTH_OK=0
+    for i in {1..3}; do
+        INPUT_PASS=$(zenity --password --title="Wymagana autoryzacja" --text="Wykryto zaszyfrowane konta.\nPodaj <b>Hasło Główne</b>, aby odblokować dostęp:")
+        
+        if [ $? -ne 0 ] || [ -z "$INPUT_PASS" ]; then
+            notify-send "Zupix-Py2Lua-Mail-conky" "Anulowano. Hasło jest wymagane do działania."
+            exit 1
+        fi
+        
+        FILE_CONTENT=$(cat "$MASTER_PASS_FILE")
+        DECRYPTED_CHECK=$(echo "$FILE_CONTENT" | openssl enc -d -aes-256-cbc -salt -pbkdf2 -pass pass:"$INPUT_PASS" -a -A 2>/dev/null || true)
+
+        if [ "$DECRYPTED_CHECK" == "$CHALLENGE_TEXT" ]; then
+            AUTH_OK=1
+            break
+        else
+            play_error_sound
+            zenity --error --text="Błąd autoryzacji! Podano nieprawidłowe Hasło Główne."
+        fi
+    done
+    
+    if [ "$AUTH_OK" -eq 0 ]; then
+        exit 1
+    fi
+fi
+
 # pliki tymczasowe na podsumowanie z markupem
 SUMMARY_OK=$(mktemp)
 SUMMARY_ERR=$(mktemp)
@@ -23,6 +56,7 @@ SUMMARY_INFO=$(mktemp)
 
 # przekaż zmienne do Pythona
 export PYTHON_SCRIPT
+export SECRET_KEY_FILE
 
 # Uwaga: python3 -u = unbuffered output
 python3 -u - <<'EOF' | while IFS= read -r line
@@ -31,6 +65,7 @@ import sys
 import json
 import os
 import html
+import subprocess
 
 # --- Kolory Pango ---
 ACC_COLOR = "#00bfff"   # nazwa konta
@@ -39,6 +74,36 @@ ERR_COLOR = "red"       # liczba błędów
 
 def esc(s):
     return html.escape(str(s), quote=True)
+
+# --- NOWOŚĆ: Funkcja deszyfrująca ---
+def decrypt_pass(encrypted_pass):
+    if not encrypted_pass or not encrypted_pass.startswith("U2FsdGVkX1"):
+        return encrypted_pass
+    
+    key_file = os.getenv("SECRET_KEY_FILE", "")
+    if not key_file or not os.path.exists(key_file):
+        return None
+
+    try:
+        cmd = [
+            'openssl', 'enc', '-d', '-aes-256-cbc', 
+            '-salt', '-pbkdf2', 
+            '-pass', f'file:{key_file}', 
+            '-a', '-A'
+        ]
+        proc = subprocess.Popen(
+            cmd, 
+            stdin=subprocess.PIPE, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE
+        )
+        out, err = proc.communicate(input=encrypted_pass.encode('utf-8'))
+        
+        if proc.returncode != 0:
+            return None
+        return out.decode('utf-8')
+    except Exception:
+        return None
 
 # Ścieżka do accounts.json (obok głównego skryptu Pythona)
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(os.getenv("PYTHON_SCRIPT","./py/ZupixPyMail.py"))))
@@ -67,6 +132,15 @@ for idx, acc in enumerate(accounts):
     name = esc(acc.get("name","(konto)"))
     name_markup = f"<b><span foreground='{ACC_COLOR}'>{name}</span></b>"
 
+    # Deszyfrowanie
+    raw_pass = acc["password"]
+    password = decrypt_pass(raw_pass)
+
+    if password is None:
+        print(f"[ERR]{name_markup}: Błąd deszyfrowania hasła.", flush=True)
+        print(f"PROGRESS:{int(stage_end)}", flush=True)
+        continue
+
     try:
         # --- LOGIKA POŁĄCZENIA (STARTTLS vs SSL) ---
         if acc.get("encryption", "ssl") == "starttls":
@@ -75,7 +149,7 @@ for idx, acc in enumerate(accounts):
         else:
             imap = imaplib.IMAP4_SSL(acc["host"], int(acc["port"]))
 
-        imap.login(acc["login"], acc["password"])
+        imap.login(acc["login"], password)
         
         typ_sel, _ = imap.select("INBOX", readonly=False)
         if typ_sel != "OK":
