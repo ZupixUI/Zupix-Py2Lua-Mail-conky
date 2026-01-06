@@ -109,9 +109,11 @@ ACCOUNT_COLORS = {
 }
 
 local ACCOUNT_NAMES = {
+    "Wszystkie konta",
 }
 
 local ACCOUNT_KEYS = {
+    nil,
 }
 
 --———————————————————————————————— WIDOCZNOŚĆ ELEMENTÓW UI ————————————————————————————————
