@@ -546,10 +546,17 @@ while true; do
             # 1. Wyczyść plik JSON
             echo "[]" > "$ACCOUNTS_JSON"
             
-            # 2. Wyczyść tablice w Lua
+			# 2. Wyczyść tablice w Lua i przywróć wartości domyślne
+            # --- ACCOUNT_COLORS (ma być puste) ---
             empty_block_perl "$EMAIL_LUA" '^ACCOUNT_COLORS = {'
+
+            # --- ACCOUNT_NAMES (ma mieć "Wszystkie konta") ---
             empty_block_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = {'
+            insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_NAMES = {' '    "Wszystkie konta",'
+
+            # --- ACCOUNT_KEYS (ma mieć nil) ---
             empty_block_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = {'
+            insert_before_block_end_perl "$EMAIL_LUA" '^local ACCOUNT_KEYS = {' '    nil,'
 
             # 3. Zresetuj wewnętrzną tablicę
             accounts_array=()
