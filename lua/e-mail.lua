@@ -621,11 +621,10 @@ end
 local function extract_email_address(from_string)
     if not from_string then return "" end
     -- Próba wyjęcia z nawiasów <email@domena.com>
-    local email = from_string:match("<([^>]+)>")
-    if email then return email end
-    -- Jeśli brak nawiasów, zakładamy że to sam email, chyba że to nazwa
-    if from_string:find("@") then return from_string end
-    return ""
+    local email = from_string:match("<(.-)>")
+    -- Jeśli brak nawiasów, szukamy konkretnego wzorca emaila
+    if not email then email = from_string:match("[%w%.%-_]+@[%w%.%-_]+") end
+    return email or ""
 end
 
 -- ———————— NOWOŚĆ: Ładowanie mapy avatarów ————————
