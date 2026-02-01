@@ -207,57 +207,64 @@ To przyjazny dla użytkownika "klej", który spaja cały system. Zestaw skryptó
 ## Struktura Projektu
 ```
 .
-├── 1.Instalacja_zależności.sh                        # Krok 1: Instalator zależności
-├── 2.Konfiguracja_kont.sh                            # Krok 2: Menedżer kont e-mail
-├── 3.START_RESTART_skryptów_oraz_conky.sh            # Krok 3: Główny skrypt uruchomieniowy z mechanizmem restartu
-├── add_hotkey_mail_down.sh                           # Skrypt bash do zmniejszania indeksu w pliku `conky_mail_scroll_offset` (przewijanie listy w górę)
-├── add_hotkey_mail_up.sh                             # Skrypt bash do zwiększania indeksu w pliku `conky_mail_scroll_offset` (przewijanie listy w dół)
-├── Authors.txt                                       # Podstawowe informacje o autorach oraz kontakt
-├── config                                            # Folder z plikami konfiguracyjnymi
-|   ├── avatar_map.json                               # Plik json z mapą adresów e-mail oraz lokalizacji plików png, dla funkcji avatarów
-│   ├── accounts.json                                 # Główny plik z danymi kont (dla backendu ZupixPyMail.py)
-│   ├── denoise_patterns                              # Plik tekstowy z ręcznymi definicjami czyszczenia maili
-│   └── mail_conky_max                                # Plik tekstowy z limitem maili na liście wigetu, wyrażonym w cyfrach całkowitych naturalnych 
-├── conkyrc_zupix                                     # Główny plik konfiguracyjny Conky
-├── icons                                             # Ikony
-│   ├── mail1.png                                     # --
-│   ├── mail2.png                                     # --
-│   ├── mail3.png                                     # --
-│   ├── mail4.png                                     # --
-│   ├── mail5.png                                     # --
-│   ├── mail6.png                                     # --
-│   ├── mail.png                                      # --
-│   ├── spinacz1.png                                  # --
-│   └── spinacz3.png                                  # --
-├── License.txt                                       # Licencja GPL v3+
-├── log                                               # Folder przewidziany na logi (przyszła funkcjonalność) 
-├── lua                                               # Skrypty frontendu (Lua)
-│   ├── dkjson.lua                                    # Skrypt lua do obsługi JSON
-│   └── e-mail.lua                                    # Główna logika wizualna widgetu
-├── Oznacz_n_wiadomości_jako_nieprzeczytane.sh        # Skrypt bash do oznaczania N najnowszych wiadomości jako nieprzeczytane
-├── Oznacz_wszystkie_wiadomości_jako_przeczytane.sh   # Skrypt bash do oznaczania wszystkich wiadomości jako przeczytane
-├── py                                                # Skrypty backendu (Python)
-│   ├── venv                                          # Wirtualne środowisko Python dla backendu (tworzone podczas działania `1.Instalacja_zależności.sh`)
-│   └── ZupixPyMail.py                                # Serce projektu. Główny skrypt python pobierający maile
-├── sound                                             # Folder z plikami dźwiękowymi 
-│   ├── error_2.wav                                   # --
-│   ├── error.wav                                     # --           
-│   ├── notification_1.wav                            # --
-│   ├── notification_2.wav                            # --
-│   ├── notification_3.wav                            # --
-│   ├── notification_4.wav                            # --
-│   ├── notification_5.wav                            # --
-│   ├── notification_6.wav                            # --
-│   ├── nowy_mail.wav                                 # --
-│   ├── pop-up_1.wav                                  # --
-│   ├── remove_mail1.wav                              # --
-│   ├── shake_2.wav                                   # --
-│   ├── start_1.wav                                   # --
-│   ├── start_2.wav                                   # --
-│   ├── start_3.wav                                   # --
-│   └── start_notification_1.wav                      # --
-├── Zmiana_layoutu_oraz_skalowania.sh                 # Skrypt bash do zmiany layoutu oraz skalowania
-└── Zmień_wyświetlane_konto.sh                        # Skrypt bash do zmiany wyświetlanego konta
+├── 1.Install_dependencies.sh -> ...                  # Skrót (Symlink) do instalatora zależności
+├── 2.Configure_accounts.sh -> ...                    # Skrót (Symlink) do konfiguratora kont
+├── 3.Start_and_Restart.sh -> ...                     # Skrót (Symlink) do głównego startera widgetu
+├── Change_displayed_account.sh -> ...                # Skrót (Symlink) do szybkiej zmiany wyświetlanego konta
+├── Change_language.sh                                # Narzędzie do zmiany języka pakietu (zarządza symlinkami)
+├── Change_layout_and_scaling.sh -> ...               # Skrót (Symlink) do konfiguratora wyglądu (układ i skala)
+├── Configure_avatars.sh -> ...                       # Skrót (Symlink) do menedżera avatarów
+├── Mark_all_messages_as_read.sh -> ...               # Skrót (Symlink) do oznaczania wszystkich jako przeczytane
+├── Mark_n_messages_as_unread.sh -> ...               # Skrót (Symlink) do oznaczania N wiadomości jako nieprzeczytane
+├── Scroll_mail_list_down.sh -> ...                   # Skrót (Symlink) do przewijania listy w dół (hotkey)
+├── Scroll_mail_list_up.sh -> ...                     # Skrót (Symlink) do przewijania listy w górę (hotkey)
+├── conkyrc_zupix                                     # Główny plik konfiguracyjny Conky (Layout)
+├── config                                            # Folder z konfiguracją użytkownika
+│   ├── accounts.json                                 # Baza kont e-mail (hasła szyfrowane AES-256-CBC)
+│   ├── avatar_map.json                               # Baza przypisań grafik do adresów e-mail
+│   ├── denoise_patterns                              # Wzorce czyszczenia treści maili (Regex)
+│   ├── lang                                          # Plik przechowujący kod aktualnie wybranego języka
+│   └── mail_conky_max                                # Ustawienie limitu liczby wyświetlanych maili
+├── core                                              # Rdzeń logiki (Biblioteki i Silnik)
+│   ├── lib                                           # Biblioteki Python offline (.whl)
+│   ├── lua                                           # Frontend (Lua/Cairo)
+│   │   ├── dkjson.lua                                # Biblioteka Lua do obsługi JSON
+│   │   └── e-mail.lua                                # Główny skrypt rysujący interfejs
+│   └── py                                            # Backend (Python)
+│       ├── venv                                      # Wirtualne środowisko Python (auto-naprawialne)
+│       └── ZupixPyMail.py                            # Logika IMAP, IDLE, szyfrowanie i cache
+├── data                                              # Zasoby statyczne (Media)
+│   ├── icons                                         # Ikony systemowe i folder avatarów
+│   └── sound                                         # Pliki dźwiękowe (powiadomienia, błędy)
+├── docs                                              # Dokumentacja, licencje i autorzy
+├── lang                                              # Pliki tłumaczeń (i18n)
+│   ├── CLI                                           # Słowniki dla trybu tekstowego
+│   ├── GUI                                           # Słowniki dla okien Zenity
+│   ├── LUA                                           # Słowniki interfejsu widgetu
+│   └── PY                                            # Słowniki logów backendu
+└── scripts                                           # Fizyczna lokalizacja wszystkich skryptów
+    ├── CLI                                           # Wersje konsolowe (Terminal) - pełna funkcjonalność bez GUI
+    │   ├── 1.CLI_Install_dependencies.sh             # Instalator zależności (tryb tekstowy)
+    │   ├── 2.CLI_Configure_accounts.sh               # Konfigurator kont (tryb tekstowy)
+    │   ├── 3.CLI_START_RESTART...conky.sh            # Starter widgetu (tryb tekstowy)
+    │   ├── CLI_Change_displayed_account.sh           # Zmiana konta (tryb tekstowy)
+    │   ├── CLI_Change_layout_and_scaling.sh          # Konfigurator wyglądu (tryb tekstowy)
+    │   ├── CLI_Configure_avatars.sh                  # Menedżer avatarów (tryb tekstowy)
+    │   ├── CLI_Mark_all_messages_as_read.sh          # Oznaczanie wszystkich jako przeczytane (tryb tekstowy)
+    │   ├── CLI_Mark_n_messages_as_unread.sh          # Oznaczanie N wiadomości jako nieprzeczytane (tryb tekstowy)
+    │   ├── scroll_list_hotkey_mail_down.sh           # Logika przewijania w dół (bez GUI)
+    │   └── scroll_list_hotkey_mail_up.sh             # Logika przewijania w górę (bez GUI)
+    └── GUI                                           # Wersje graficzne (Zenity) - domyślnie podlinkowane w Root
+        ├── 1.Install_dependencies.sh                 # Instalator zależności (okna dialogowe)
+        ├── 2.Configure_accounts.sh                   # Konfigurator kont (okna dialogowe)
+        ├── 3.Start_and_Restart.sh                    # Starter widgetu (okna dialogowe)
+        ├── Change_displayed_account.sh               # Zmiana konta (lista wyboru)
+        ├── Change_layout_and_scaling.sh              # Konfigurator wyglądu (formularze)
+        ├── Configure_avatars.sh                      # Menedżer avatarów (lista i wybór plików)
+        ├── Mark_all_messages_as_read.sh              # Oznaczanie wszystkich jako przeczytane (pasek postępu)
+        ├── Mark_n_messages_as_unread.sh              # Oznaczanie N wiadomości jako nieprzeczytane (pasek postępu)
+        ├── Scroll_mail_list_down.sh                  # Wrapper przewijania w dół
+        └── Scroll_mail_list_up.sh                    # Wrapper przewijania w górę
 ```
 ---
 
