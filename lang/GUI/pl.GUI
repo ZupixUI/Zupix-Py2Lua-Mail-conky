@@ -1,0 +1,564 @@
+# ==============================================================================
+# GLOBALNE (Wspólne dla całego projektu)
+# ==============================================================================
+GLOBAL_ERR_JQ_MISSING="❌ <b>Błąd zależności</b>\n\nNarzędzie <tt>jq</tt> nie jest zainstalowane.\nJest ono wymagane do bezpiecznego odczytu konfiguracji.\n\nZainstaluj je."
+GLOBAL_ERR_LANG_FILE_MISSING="Krytyczny błąd: Nie znaleziono pliku językowego:"
+GLOBAL_OPTION_EXIT="Wyjście"
+
+# ==============================================================================
+# SKRYPT: Change_displayed_account.sh
+# ==============================================================================
+# Błędy specyficzne dla tego skryptu
+CHANGE_DISPLAYED_ACCOUNT_ERR_CONFIG_MISSING="Brak pliku z kontami:"
+CHANGE_DISPLAYED_ACCOUNT_ERR_NO_ACCOUNTS="Nie znaleziono żadnych kont w pliku:\n"
+
+# Menu (Zenity)
+CHANGE_DISPLAYED_ACCOUNT_MENU_TITLE="Wybierz konto"
+CHANGE_DISPLAYED_ACCOUNT_MENU_COLUMN="Dostępne konta"
+CHANGE_DISPLAYED_ACCOUNT_OPTION_MULTI="Multi-konto --> Wszystkie konta na liście"
+
+# Powiadomienia
+CHANGE_DISPLAYED_ACCOUNT_NOTIFY_TITLE="Zupix-Py2Lua-Mail-conky"
+CHANGE_DISPLAYED_ACCOUNT_NOTIFY_MSG_SELECTED="Wybrano:"
+CHANGE_DISPLAYED_ACCOUNT_NOTIFY_MSG_NUM="numer"
+
+# ==============================================================================
+# SKRYPT: Change_language.sh
+# ==============================================================================
+CHANGE_LANGUAGE_MENU_TITLE="Zmiana języka"
+CHANGE_LANGUAGE_MENU_COLUMN="Dostępne pliki językowe"
+CHANGE_LANGUAGE_SUCCESS_TITLE="Sukces"
+CHANGE_LANGUAGE_SUCCESS_MSG="Język został zmieniony na:"
+CHANGE_LANGUAGE_ERR_NO_FILES="Nie znaleziono plików .lang w folderze:"
+
+# ==============================================================================
+# SKRYPT: Configure_avatars.sh (Avatar Manager)
+# ==============================================================================
+# Tytuły okien
+AVATAR_MANAGER_TITLE_MAIN="Zupix Avatar Manager v1.0"
+AVATAR_MANAGER_TITLE_JSON_ERR="Błąd składni JSON"
+AVATAR_MANAGER_TITLE_DISK_CLEAN="Czyszczenie dysku"
+AVATAR_MANAGER_TITLE_IMPORT="Import pliku"
+AVATAR_MANAGER_TITLE_CATEGORY="Kategoria"
+AVATAR_MANAGER_TITLE_SELECTION_ERR="Błąd wyboru"
+AVATAR_MANAGER_TITLE_ADD_NEW="Dodaj nowy"
+AVATAR_MANAGER_TITLE_DELETE="Usuwanie"
+AVATAR_MANAGER_TITLE_FILE_SELECT="Wybierz grafikę dla:"
+AVATAR_MANAGER_TITLE_EDIT="Edycja:"
+
+# Komunikaty błędów i ostrzeżenia
+AVATAR_MANAGER_ERR_JSON_BROKEN="Plik konfiguracyjny jest uszkodzony.\n\n<b>Szczegóły błędu:</b>\n<span color='red'>%s</span>%s\n\nCo chcesz zrobić?"
+AVATAR_MANAGER_ERR_ZENITY_MISSING="Brak zenity."
+AVATAR_MANAGER_ERR_JQ_MISSING="Brak jq."
+AVATAR_MANAGER_ERR_EMAIL_EXISTS="Ten mail już istnieje. Użyj edycji."
+AVATAR_MANAGER_WARN_HEADER_SELECT="<b>To jest nagłówek kategorii.</b>\n\nNie można go edytować ani usunąć.\nProszę wybrać konkretny adres e-mail poniżej."
+
+# Teksty informacyjne i pytania
+AVATAR_MANAGER_TEXT_MAIN_DESC="Zarządzaj avatarami w folderach.\n"
+AVATAR_MANAGER_TEXT_DISK_CLEAN="Usunięto wpis z bazy.\n\nCzy usunąć również plik graficzny?\n<b>%s</b>"
+AVATAR_MANAGER_TEXT_IMPORT_QUESTION="Czy skopiować plik do folderu projektu?\n\n<b>TAK</b> - Tworzy porządek w folderach (Kategorie).\n<b>NIE</b> - Używa pliku z obecnej lokalizacji."
+AVATAR_MANAGER_TEXT_CATEGORY_ENTRY="Wybierz lub wpisz nazwę folderu:"
+AVATAR_MANAGER_TEXT_OVERWRITE="Plik '%s' istnieje w '%s'. Nadpisać?"
+AVATAR_MANAGER_TEXT_ADD_EMAIL="Wpisz adres e-mail:"
+AVATAR_MANAGER_TEXT_SELECT_DELETE="Wybierz wpis do usunięcia:"
+AVATAR_MANAGER_TEXT_CONFIRM_DELETE="Usunąć wpis dla:\n<b>%s</b>?"
+AVATAR_MANAGER_TEXT_OPTIONS_FOR="Opcje dla: <b>%s</b>"
+
+# Przyciski i Etykiety
+AVATAR_MANAGER_BTN_EXIT_MANUAL="Wyjdź (Naprawię ręcznie)"
+AVATAR_MANAGER_BTN_RESET_FILE="Zresetuj plik"
+AVATAR_MANAGER_BTN_YES_DELETE="Tak, usuń plik"
+AVATAR_MANAGER_BTN_NO_KEEP="Nie, zachowaj plik"
+AVATAR_MANAGER_BTN_EDIT="Edytuj"
+AVATAR_MANAGER_BTN_ADD_NEW="Dodaj nowy"
+AVATAR_MANAGER_BTN_DELETE_SELECTED="Usuń wybrane"
+
+# Elementy listy i kategorie
+AVATAR_MANAGER_COL_EMAIL_CAT="E-mail / Kategoria"
+AVATAR_MANAGER_COL_PATH="Ścieżka pliku"
+AVATAR_MANAGER_COL_ACTION="Akcja"
+AVATAR_MANAGER_CAT_EXTERNAL="Zewnętrzne / Inne"
+AVATAR_MANAGER_CAT_ROOT="Ogólne (Root)"
+AVATAR_MANAGER_LIST_NO_DATA="Brak danych"
+AVATAR_MANAGER_LIST_ADD_HINT="Dodaj nowy wpis..."
+AVATAR_MANAGER_FILTER_IMAGES="Obrazki"
+
+# Akcje w menu edycji
+AVATAR_MANAGER_ACTION_CHANGE_IMG="Zmień obrazek"
+AVATAR_MANAGER_ACTION_DELETE_ENTRY="Usuń ten wpis"
+AVATAR_MANAGER_ACTION_CANCEL="Anuluj"
+
+# Powiadomienia
+AVATAR_MANAGER_NOTIFY_RESET="Zresetowano plik konfiguracyjny."
+AVATAR_MANAGER_NOTIFY_FILE_DELETED="Plik został usunięty z dysku."
+AVATAR_MANAGER_NOTIFY_ADDED="Dodano:"
+AVATAR_MANAGER_NOTIFY_UPDATED="Zaktualizowano."
+
+# ==============================================================================
+# SKRYPT: Install_dependencies.sh (1.Instalacja_zależności.sh)
+# ==============================================================================
+
+# Nagłówki okien i tytuły
+INSTALL_DEPENDENCIES_TITLE_MAIN="Zupix-Py2Lua-Mail-conky - Instalacja zależności"
+INSTALL_DEPENDENCIES_TITLE_ERROR="Wystąpił problem"
+INSTALL_DEPENDENCIES_TITLE_ABORT="Przerwano instalację"
+INSTALL_DEPENDENCIES_TITLE_DISTRO="Wybierz swoją dystrybucję Linux"
+INSTALL_DEPENDENCIES_TITLE_NOTIFY_MISSING="Brakuje narzędzia notify-send"
+INSTALL_DEPENDENCIES_TITLE_NOTIFY_INSTALLING="Instalacja notify-send"
+INSTALL_DEPENDENCIES_TITLE_OM_ROLLING="Konfiguracja OpenMandriva Rolling"
+INSTALL_DEPENDENCIES_TITLE_TEMP_INSTALL="Potwierdzenie instalacji tymczasowej"
+INSTALL_DEPENDENCIES_TITLE_OM_ROCK="OpenMandriva Lx (Rock/Vanadium)"
+INSTALL_DEPENDENCIES_TITLE_UNKNOWN_SYSTEM="Nieobsługiwany system"
+INSTALL_DEPENDENCIES_TITLE_GENTOO="Wykryto Gentoo Linux"
+INSTALL_DEPENDENCIES_TITLE_CONFIRM_SKIP="Potwierdzenie pominięcia"
+INSTALL_DEPENDENCIES_TITLE_VENV_PROGRESS="Python venv & biblioteki"
+INSTALL_DEPENDENCIES_TITLE_SUCCESS="Sukces! 🎉"
+
+# Komunikaty błędów i ostrzeżenia
+INSTALL_DEPENDENCIES_ERR_UNEXPECTED="Nieoczekiwany błąd w skrypcie!"
+INSTALL_DEPENDENCIES_ERR_SECTION="Sekcja skryptu: <tt>%s</tt>\n\nJeśli nie możesz rozwiązać problemu samodzielnie, zgłoś błąd autorowi projektu."
+INSTALL_DEPENDENCIES_ERR_TERMINAL_MISSING="Nie znaleziono emulatora terminala!"
+INSTALL_DEPENDENCIES_ERR_LSB_MISSING="❗ <b>Nie znaleziono polecenia <tt>lsb_release</tt> w systemie.</b>\n\nTo polecenie służy do automatycznego wykrywania wersji systemu Linux przez skrypt.\n\nW kolejnym kroku <b>musisz wybrać ręcznie swoją dystrybucję z listy</b>.\n\nJeśli nie ma jej na liście, wybierz opcję 'Brak systemu na liście'."
+INSTALL_DEPENDENCIES_ERR_USER_CANCEL="Użytkownik zamknął okno instalatora lub anulował wybór.\nSkrypt kończy działanie."
+INSTALL_DEPENDENCIES_ERR_NIXOS="Na NixOS dołącz zenity w configuration.nix (environment.systemPackages).\nPrzykład: environment.systemPackages = with pkgs; [ zenity ];"
+INSTALL_DEPENDENCIES_ERR_NIXOS_NOTIFY="Na NixOS zainstaluj notify-send przez configuration.nix"
+INSTALL_DEPENDENCIES_ERR_NIXOS_PACKAGES="ℹ️ <b>NixOS wykryty.</b>\nZainstaluj ręcznie pakiety: conky, lua, wget oraz noto-fonts-emoji przez configuration.nix."
+INSTALL_DEPENDENCIES_ERR_DKJSON_MKDIR="Nie mogę utworzyć katalogu: %s"
+INSTALL_DEPENDENCIES_ERR_DKJSON_WGET="Błąd podczas pobierania dkjson.lua"
+INSTALL_DEPENDENCIES_ERR_DKJSON_MV="Błąd podczas zapisu dkjson.lua"
+INSTALL_DEPENDENCIES_ERR_VENV_MODULE="Brak modułu venv w Pythonie.\nNa systemach Debian/Ubuntu/Mint doinstaluj pakiet: python3-venv."
+INSTALL_DEPENDENCIES_ERR_FILE_MISSING="Nie znaleziono pliku \"%s\"!"
+INSTALL_DEPENDENCIES_ERR_VENV_ABORTED="❗ <b>Przerwano instalację środowiska Python venv lub bibliotek.</b>\n\nUżytkownik anulował pasek postępu, zamknął okno lub kliknął przycisk <b>Anuluj</b>.\nSkrypt kończy działanie."
+
+# Wykrywanie dystrybucji (Manualne)
+INSTALL_DEPENDENCIES_COL_DISTRO="Dystrybucja"
+INSTALL_DEPENDENCIES_OPT_NO_SYSTEM="Brak systemu na liście"
+INSTALL_DEPENDENCIES_ERR_NO_DISTRO_SELECTED="Nie znaleziono polecenia lsb_release, a użytkownik nie wybrał żadnej obsługiwanej dystrybucji."
+INSTALL_DEPENDENCIES_SEC_DETECT_DISTRO="WYKRYWANIE DYSTRYBUCJI"
+
+# Zenity - Brak (Tryb awaryjny)
+INSTALL_DEPENDENCIES_ZENITY_ONCE="🔁 Skrypt już próbował zainstalować zenity. Uruchom go ponownie, jeśli instalacja się powiodła."
+INSTALL_DEPENDENCIES_ZENITY_HEADER="Brakuje wymaganego programu ZENITY - (GUI)."
+INSTALL_DEPENDENCIES_ZENITY_HEADER_OM="Brakuje wymaganego programu ZENITY - (GUI).\n\nSpecjalny wyjątek dla OpenMandriva:\nUsuwanie zamiennika zenity 'qarma', który psuje skrypt + instalacja pełnego 'zenity-gtk'."
+INSTALL_DEPENDENCIES_ZENITY_INSTALL_MSG="Zostanie uruchomione następujące polecenie instalacyjne:\n\n    %s ; %s\n\nNaciśnij Enter, aby rozpocząć instalację..."
+INSTALL_DEPENDENCIES_ZENITY_DONE_MSG="--- Instalacja zenity zakończona. Naciśnij Enter, aby zamknąć terminal... ---"
+INSTALL_DEPENDENCIES_ZENITY_ASK_DISTRO="Brakuje wymaganego programu ZENITY.\nWybierz swoją dystrybucję:\n  1) Debian/Ubuntu/Mint\n  2) Arch/Manjaro/Garuda/EndeavourOS/Artix\n  3) Fedora\n  4) openSUSE\n  5) Solus\n  6) OpenMandriva\n  7) Mageia\n  8) Gentoo\n\nNumer [1-8]: "
+
+# Notify-send
+INSTALL_DEPENDENCIES_NOTIFY_ASK="🔔 <big><b>Brakuje narzędzia <tt>notify-send</tt>.</b></big>\n\nPakiet: <b><tt>%s</tt></b>\n\nPo zainstalowaniu skrypt <b>uruchomi się ponownie od początku</b> i dokończy pracę.\n\nCzy chcesz zainstalować teraz?"
+INSTALL_DEPENDENCIES_NOTIFY_INFO="<big><b>Instalacja <tt>%s</tt> została uruchomiona w terminalu.</b></big>\n\nJeśli zostaniesz poproszony o hasło — wpisz je w terminalu.\n\nGdy instalacja się zakończy, kliknij <b>OK</b>. Skrypt uruchomi się ponownie i sprawdzi środowisko."
+INSTALL_DEPENDENCIES_NOTIFY_FAIL="Wygląda na to, że <tt>notify-send</tt> nadal nie jest dostępne.\nSpróbuję uruchomić skrypt ponownie.\nJeśli problem nie ustąpi — zainstaluj ręcznie pakiet <b>%s</b> i odpal skrypt jeszcze raz."
+
+# OpenMandriva & Repozytoria
+INSTALL_DEPENDENCIES_OM_REPO_OFF="ℹ️ <big><b>Wymagane repozytorium 'Extra' jest wyłączone.</b></big>"
+INSTALL_DEPENDENCIES_OM_REPO_OFF_AGAIN="<span foreground='red'>⛔ <big><big><b>Wymagane repozytorium 'Extra' jest NADAL wyłączone!</b></big></big></span>"
+INSTALL_DEPENDENCIES_OM_REPO_TEXT="%s\n\nPakiet <b>conky</b> znajduje się w repozytorium <tt>rolling-x86_64-extra</tt>.\nAby otrzymywać aktualizacje, zaleca się włączenie go w ustawieniach systemu.\n\nCo chcesz zrobić?"
+INSTALL_DEPENDENCIES_OM_TEMP_WARN="ℹ️ <b>Wybrano tryb instalacji tymczasowej.</b>\n\nSkrypt wymusi instalację pakietu <b>conky</b> korzystając z repozytorium <tt>rolling-x86_64-extra</tt> <b>tylko jednorazowo</b>.\n\n⚠️ <b>Konfiguracja systemu nie zostanie zmieniona na stałe.</b>\nOznacza to, że pakiet conky zainstaluje się poprawnie, ale w przyszłości system może nie wykrywać do niego aktualizacji automatycznie.\n\nCzy chcesz kontynuować?"
+INSTALL_DEPENDENCIES_OM_ROCK_WARN="⚠️ <big><b>Wykryto wersję stabilną OpenMandriva (Rock).</b></big>\n\nAby widget działał poprawnie, instalator pobierze nowszą wersję pakietu <tt>conky</tt> (z obsługą Lua/Cairo) korzystając z repozytorium <b>Rolling</b>.\n\nCzy zgadzasz się na tymczasowe pobranie pakietu z nowszego systemu?\n(Nie wpłynie to na stabilność reszty systemu)."
+INSTALL_DEPENDENCIES_OM_REFRESHING="🔄 <b>Odświeżanie bazy pakietów...</b>\n\nProszę czekać, sprawdzam zmiany."
+INSTALL_DEPENDENCIES_OM_VERIFYING="🔍 Weryfikacja..."
+
+# Pakiety i Instalacja (Główna pętla)
+INSTALL_DEPENDENCIES_MANUAL_TEXT="<big><b>Tryb awaryjny: instalacja ręczna.</b></big>\n\nBrakujące pakiety:\n<b><tt>%s</tt></b>\n\nUruchom w terminalu następujące polecenie:\n<b><tt>%s</tt></b>\n\nKliknij <b>Otwórz terminal</b>, aby otworzyć pusty terminal.\nPo instalacji kliknij <b>OK</b>, a skrypt sprawdzi zależności."
+INSTALL_DEPENDENCIES_SKIP_WARN="<big>⚠️ <b>Czy na pewno chcesz pominąć sprawdzanie zależności?</b></big>\n\n<span foreground='red'>Pominięcie tego kroku oznacza, że skrypt nie zweryfikuje, czy wymagane pakiety (Conky, Lua, Wget itp.) są zainstalowane.</span>\n\nJeśli ich brakuje, widżet nie uruchomi się poprawnie lub wystąpią błędy.\n\nCzy jesteś świadomy ryzyka i chcesz kontynuować?"
+INSTALL_DEPENDENCIES_UNKNOWN_HEADER="<span foreground='red'><big><big><b>Nie rozpoznano menedżera pakietów!</b></big></big></span>"
+INSTALL_DEPENDENCIES_UNKNOWN_TEXT="<big><big>🖥️ System operacyjny: <b>%s</b> | Wersja: <b>%s</b></big></big>\n\n%s\n\nSkrypt nie posiada automatycznych reguł instalacji dla tego systemu.\nMusisz ręcznie zainstalować poniższe pakiety:\n\n<tt>%s</tt>\n\n• <b>Nie sprawdzaj zależności</b> - Kliknij, aby pominąć weryfikację pakietów systemowych i przejść do konfiguracji Python venv.\n• <b>Anuluj</b> – Zakończ działanie skryptu."
+INSTALL_DEPENDENCIES_MISSING_HEADER="🔧 <big><b>W systemie należy zainstalować następujące pakiety:</b></big>"
+INSTALL_DEPENDENCIES_MISSING_HEADER_AGAIN="<span foreground='red'>🔧 <big><big><b>W systemie nadal brakuje następujących pakietów!</b></big></big></span>"
+INSTALL_DEPENDENCIES_MISSING_TEXT="<big><big>🖥️ System operacyjny: <b>%s</b> | Wersja: <b>%s</b></big></big>\n\n%s\n\n<b><tt>%s</tt></b>\n\n• <b>Instalacja</b> - Kliknij, aby skrypt przeprowadzi Cię przez proces automatycznej instalacji potrzebnych zależności.\n• <b>Wszystko OK</b> - Kliknij jeśli udało się poprawnie zainstalować zależności. Skrypt sprawdzi poprawność instalacji.\n• <b>Tryb awaryjny</b> - Kliknij w razie problemów z instalacją automatyczną. Dostaniesz polecenie do ręcznego wykonania w terminalu.\n• <b>Anuluj</b> – zakończy działanie skryptu."
+INSTALL_DEPENDENCIES_AUTO_INSTALL_TEXT="<big><b>Automatyczna instalacja została uruchomiona w terminalu.\nJeśli zajdzie taka potrzeba, wpisz hasło dla sudo.</b></big>\n\nBrakujące zależności (w trakcie instalacji):\n<b><tt>%s</tt></b>\n\nPo zakończeniu instalacji w terminalu kliknij <b>Wszystko OK</b>, aby sprawdzić ponownie.\nJeśli napotkasz problem, użyj <b>Tryb awaryjny</b>."
+
+# Conky Lua Check
+INSTALL_DEPENDENCIES_LUA_FAIL="⚠️ Conky zainstalowany w systemie NIE obsługuje Lua. Widżet mailowy nie zadziała."
+INSTALL_DEPENDENCIES_LUA_FAIL_V="⚠️ <b>conky -v</b> nie zwraca wsparcia dla Lua. Widżet mailowy nie zadziała."
+INSTALL_DEPENDENCIES_LUA_UNKNOWN="ℹ️ <b>Conky ma wsparcie dla Lua</b>, ale nie udało się ustalić wersji runtime.\n<b>W systemie dostępne polecenia Lua:</b> %s\nWidżet prawdopodobnie będzie działał poprawnie."
+INSTALL_DEPENDENCIES_LUA_UNKNOWN_NO_CMD="ℹ️ <b>Conky ma wsparcie dla Lua</b>, ale nie udało się ustalić wersji runtime.\nW systemie nie znaleziono poleceń lua/lua5.x.\nWidżet prawdopodobnie będzie działał poprawnie."
+INSTALL_DEPENDENCIES_LUA_OK_CMD="✅ <b>Zgodność:</b> Conky został skompilowany z biblioteką Lua <b>%s</b> (runtime).\n<b>W systemie dostępne polecenia Lua:</b> %s\nℹ️ Dodatkowe wersje nie przeszkadzają — Conky zawsze używa swojej biblioteki runtime."
+INSTALL_DEPENDENCIES_LUA_OK_ONLY="✅ <b>Zgodność:</b> Conky został skompilowany z biblioteką Lua <b>%s</b> (runtime).\nℹ️ Widżet będzie działał poprawnie."
+INSTALL_DEPENDENCIES_LUA_OK_CMD_WARN="✅ <b>Conky został skompilowany z biblioteką Lua <b>%s</b> (runtime).</b>\n<b>W systemie wykryto polecenia Lua:</b> %s\nℹ️ To normalne — Conky zawsze używa swojej biblioteki runtime, niezależnie od tego, jakie polecenia Lua są dostępne w PATH."
+INSTALL_DEPENDENCIES_LUA_OK_NO_CMD_WARN="✅ <b>Conky został skompilowany z biblioteką Lua <b>%s</b> (runtime).</b>\nW systemie nie wykryto poleceń lua/lua5.x.\nℹ️ To nie przeszkadza — Conky zawsze używa swojej biblioteki runtime."
+
+# DKJSON & VENV
+INSTALL_DEPENDENCIES_DKJSON_DL_OK="<big>✅ Plik <b>dkjson.lua</b> został pobrany!</big>\n\n📂 Lokalizacja:\n<tt>%s</tt>"
+INSTALL_DEPENDENCIES_DKJSON_EXISTS="<big>✅ Plik <b>dkjson.lua</b> już istnieje.</big>\n\n📂 Lokalizacja:\n<tt>%s</tt>"
+INSTALL_DEPENDENCIES_VENV_EXISTS="🖋 <b>Wykryto już środowisko Python venv:</b>\n\n<tt>%s</tt>\n\nCo chcesz zrobić?\n(Zalecane utworzenie na nowo, po przeniesieniu projektu lub problemach z bibliotekami)"
+INSTALL_DEPENDENCIES_VENV_PROGRESS_TEXT="Przygotowuję środowisko..."
+INSTALL_DEPENDENCIES_VENV_DONE="<big>📦 Pakiety <b>imapclient</b> oraz <b>beautifulsoup4</b> zostały zainstalowane w środowisku venv:</big>\n<tt>%s</tt>"
+INSTALL_DEPENDENCIES_NEXT_SCRIPT="<big><big>Skrypt wykonał swoje zadanie 😊</big></big>\nCzy chcesz teraz uruchomić kolejny skrypt <b>\"2.Konfiguracja_kont.sh\"</b>, który pomoże Ci skonfigurować konta pocztowe?\n<span foreground='red'>Jest to konieczne do prawidłowego działania widgetu.</span>"
+INSTALL_DEPENDENCIES_NEXT_MANUAL="<b>✅ Zakończono instalację.</b> Możesz teraz ręcznie uruchomić skrypt: <b>2.Konfiguracja_kont.sh</b>"
+
+# --- DODATEK: Sekcja postępu instalacji VENV (1.Instalacja_zależności.sh) ---
+INSTALL_DEPENDENCIES_VENV_STEP_CREATE="Tworzę nowe środowisko venv..."
+INSTALL_DEPENDENCIES_VENV_ERR_PYTHON3="Błąd: brak python3!"
+INSTALL_DEPENDENCIES_VENV_ERR_CREATE="Błąd przy tworzeniu venv!"
+INSTALL_DEPENDENCIES_VENV_STEP_PIP="Sprawdzam aktualizację pip..."
+INSTALL_DEPENDENCIES_VENV_ERR_PIP="Błąd przy aktualizacji pip!"
+INSTALL_DEPENDENCIES_VENV_STEP_LIBS="Instaluję biblioteki Python (imapclient, beautifulsoup4)..."
+INSTALL_DEPENDENCIES_VENV_STEP_OFFLINE="Tryb OFFLINE: Instalacja z folderu lib..."
+INSTALL_DEPENDENCIES_VENV_ERR_OFFLINE="Błąd instalacji bibliotek z folderu lib!"
+INSTALL_DEPENDENCIES_VENV_STEP_ONLINE="Tryb ONLINE: Pobieranie z internetu..."
+INSTALL_DEPENDENCIES_VENV_ERR_LIBS="Błąd instalacji bibliotek Python!"
+INSTALL_DEPENDENCIES_VENV_STEP_SKIP="Pomijam instalację (używam obecnego venv)..."
+INSTALL_DEPENDENCIES_VENV_STEP_DONE="Gotowe! Wymagane biblioteki Python zostały zainstalowane."
+
+# Przyciski
+INSTALL_DEPENDENCIES_BTN_INSTALL="Zainstaluj teraz"
+INSTALL_DEPENDENCIES_BTN_OK_CHECK="Wszystko OK / Sprawdź ponownie"
+INSTALL_DEPENDENCIES_BTN_OM_SELECTOR="Otwórz Software Repository Selector"
+INSTALL_DEPENDENCIES_BTN_OM_TEMP="Instalacja tymczasowa (Awaryjna)"
+INSTALL_DEPENDENCIES_BTN_INSTALL_TEMP="Instaluj"
+INSTALL_DEPENDENCIES_BTN_YES_AGREE="Tak, zgadzam się"
+INSTALL_DEPENDENCIES_BTN_NO_AGREE="Nie"
+INSTALL_DEPENDENCIES_BTN_OPEN_TERM="Otwórz terminal"
+INSTALL_DEPENDENCIES_BTN_NO_CHECK="Nie sprawdzaj zależności"
+INSTALL_DEPENDENCIES_BTN_INSTALL_AUTO="Instalacja"
+INSTALL_DEPENDENCIES_BTN_SAFE_MODE="Tryb awaryjny"
+INSTALL_DEPENDENCIES_BTN_OK_ALL="Wszystko OK"
+INSTALL_DEPENDENCIES_BTN_RECREATE="Tak, utwórz na nowo"
+INSTALL_DEPENDENCIES_BTN_LEAVE="Nie, zostaw"
+
+# GENTOO & MANUAL (Sekcja zaawansowana)
+INSTALL_DEPENDENCIES_GENTOO_HEADER_ANSI="💜Wykryto Gentoo Linux 💜"
+INSTALL_DEPENDENCIES_GENTOO_MANUAL_HEADER_ANSI="💜 Gentoo: Instalacja ręczna 💜"
+INSTALL_DEPENDENCIES_GENTOO_FAIL_HEADER_ANSI="❌ Nadal nie wykryto wymaganego pakietu. Sprawdź przebieg instalacji."
+INSTALL_DEPENDENCIES_GENTOO_SUCCESS_HEADER_ANSI="✅ Sukces! Pakiet wykryty. Wznawiam pracę..."
+
+INSTALL_DEPENDENCIES_GENTOO_ZENITY_BODY="Skrypt wymaga programu ZENITY do wyświetlania okien dialogowych.\nW Gentoo nie wykonujemy automatycznej instalacji pakietów systemowych."
+INSTALL_DEPENDENCIES_GENTOO_ZENITY_CMD_INTRO="Proszę otworzyć nowy terminal i wykonać:"
+INSTALL_DEPENDENCIES_GENTOO_ZENITY_WAIT="Gdy instalacja się zakończy, wróć tutaj.\nNaciśnij Enter, aby sprawdzić ponownie obecność zenity..."
+
+INSTALL_DEPENDENCIES_GENTOO_NOTIFY_BODY="Skrypt wymaga narzędzia NOTIFY-SEND do wyświetlania powiadomień.\nPakiet: x11-libs/libnotify"
+INSTALL_DEPENDENCIES_GENTOO_NOTIFY_WAIT="Gdy instalacja się zakończy, wróć tutaj.\nNaciśnij Enter, aby sprawdzić ponownie..."
+
+INSTALL_DEPENDENCIES_CLI_ZENITY_MISSING="Brakuje wymaganego programu ZENITY."
+INSTALL_DEPENDENCIES_CLI_ZENITY_INSTRUCTION="W nowym oknie terminala zostanie uruchomione polecenie:"
+INSTALL_DEPENDENCIES_CLI_ZENITY_START_PROMPT="Naciśnij Enter, aby rozpocząć instalację..."
+INSTALL_DEPENDENCIES_CLI_ZENITY_DONE_PROMPT="--- Instalacja zakończona. Naciśnij Enter, aby zamknąć terminal ---"
+INSTALL_DEPENDENCIES_CLI_GENTOO_MANUAL_INSTRUCTION="Wykonaj w innym oknie: sudo emerge -av gnome-extra/zenity"
+INSTALL_DEPENDENCIES_CLI_GENTOO_MANUAL_WAIT="Naciśnij Enter po zainstalowaniu zenity..."
+
+INSTALL_DEPENDENCIES_GENTOO_PKG_LIST="<b>app-admin/conky</b> - wymagane flagi USE: <b>lua-cairo</b>, <b>lua-cairo-xlib</b>, <b>bundled-toluapp</b> \n<b>dev-lang/lua</b>\n<b>net-misc/wget</b>\n<b>app-misc/jq</b>\n<b>media-fonts/noto-emoji</b> (lub inne, np. Google Fonts)\nPython venv (zazwyczaj wbudowany w <b>dev-lang/python</b>)"
+INSTALL_DEPENDENCIES_UNKNOWN_PKG_LIST="<b>conky</b> (z obsługą cairo), <b>lua</b>, <b>wget</b>, <b>venv</b> dla pythona, <b>jq</b>, <b>fonts-noto-color-emoji</b> (lub podobny pakiet dostarczający kolorową czcionkę \"Color emoji font from Google\")"
+
+# ==============================================================================
+# SKRYPT: Configure_accounts.sh (2.Konfiguracja_kont.sh)
+# ==============================================================================
+# Zależności i Błędy Systemowe
+CONFIGURE_ACCOUNTS_ERR_MISSING_DEP="Brak zależności"
+CONFIGURE_ACCOUNTS_ERR_JQ_MSG="Narzędzie 'jq' nie jest zainstalowane.\nZainstaluj poleceniem: sudo apt install jq"
+CONFIGURE_ACCOUNTS_ERR_PERL_MSG="Narzędzie 'perl' nie jest zainstalowane.\nJest ono wymagane do modyfikacji pliku konfiguracyjnego Lua.\n\nZainstaluj je i spróbuj ponownie."
+CONFIGURE_ACCOUNTS_ERR_OPENSSL_MSG="Narzędzie 'openssl' nie jest zainstalowane.\nJest wymagane do szyfrowania haseł.\nZainstaluj je poleceniem: sudo apt install openssl"
+CONFIGURE_ACCOUNTS_ERR_FILE_NOT_FOUND="Plik '%s' nie istnieje."
+CONFIGURE_ACCOUNTS_ERR_NO_WRITE_PERM="Brak praw zapisu do '%s'."
+
+# Hasło Główne (Master Password)
+CONFIGURE_ACCOUNTS_TITLE_SET_MASTER="Ustaw Hasło Główne"
+CONFIGURE_ACCOUNTS_TEXT_SET_MASTER="To hasło będzie wymagane przy każdym uruchomieniu konfiguratora."
+CONFIGURE_ACCOUNTS_LBL_PASS="Hasło:"
+CONFIGURE_ACCOUNTS_LBL_PASS_REPEAT="Powtórz hasło:"
+CONFIGURE_ACCOUNTS_ERR_PASS_EMPTY="Hasło nie może być puste."
+CONFIGURE_ACCOUNTS_ERR_PASS_MISMATCH="Podane hasła nie są identyczne."
+CONFIGURE_ACCOUNTS_INFO_MASTER_SET="Hasło główne zostało ustawione."
+CONFIGURE_ACCOUNTS_TITLE_AUTH="Wymagana autoryzacja"
+CONFIGURE_ACCOUNTS_TEXT_AUTH="Podaj hasło główne, aby uzyskać dostęp:"
+CONFIGURE_ACCOUNTS_ERR_WRONG_PASS="Błędne hasło!"
+CONFIGURE_ACCOUNTS_TITLE_SECURITY="Zabezpieczenia"
+CONFIGURE_ACCOUNTS_TEXT_SECURITY_ASK="<big><b>Czy chcesz zabezpieczyć konfigurator hasłem głównym?</b></big>\n\nZalecane, aby nikt niepowołany nie mógł edytować Twoich kont."
+CONFIGURE_ACCOUNTS_TITLE_MANAGE_MASTER="Zarządzanie hasłem głównym"
+CONFIGURE_ACCOUNTS_OPT_CHANGE_MASTER="Zmień hasło główne"
+CONFIGURE_ACCOUNTS_OPT_REMOVE_MASTER="Usuń hasło główne (wyłącz ochronę)"
+CONFIGURE_ACCOUNTS_MSG_REMOVE_MASTER="Czy na pewno chcesz usunąć hasło główne?\n\nProgram będzie uruchamiał się bez autoryzacji."
+CONFIGURE_ACCOUNTS_INFO_MASTER_REMOVED="Hasło główne zostało usunięte."
+
+# Menu Główne
+CONFIGURE_ACCOUNTS_TITLE_MAIN="Konfigurator Kont E-mail (Szyfrowany)"
+CONFIGURE_ACCOUNTS_TEXT_MAIN="Wybierz konto, dodaj nowe lub zarządzaj listą.\nHasła są przechowywane w formie zaszyfrowanej."
+CONFIGURE_ACCOUNTS_COL_ID="ID"
+CONFIGURE_ACCOUNTS_COL_DESC="Opis"
+CONFIGURE_ACCOUNTS_LBL_ACCOUNT="Konto"
+CONFIGURE_ACCOUNTS_OPT_ADD="➕ Dodaj nowe konto"
+CONFIGURE_ACCOUNTS_OPT_IMPORT="📂 Importuj (*.json.enc / *.json)"
+CONFIGURE_ACCOUNTS_OPT_EXPORT="📤 Eksportuj (Kopia zapasowa)"
+CONFIGURE_ACCOUNTS_OPT_SECURITY="🔐 Zarządzaj hasłem głównym"
+CONFIGURE_ACCOUNTS_OPT_DELETE_ALL="🗑️ Usuń wszystkie konta"
+CONFIGURE_ACCOUNTS_EXIT="❌ Wyjście"
+
+# Logika Wyjścia
+CONFIGURE_ACCOUNTS_MSG_START_SCRIPT="Czy chcesz uruchomić skrypt <b>3.Start_and_Restart.sh</b>, który uruchomi widget?"
+CONFIGURE_ACCOUNTS_INFO_SCRIPT_STARTED="Uruchomiono skrypt startowy."
+CONFIGURE_ACCOUNTS_ERR_SCRIPT_FAIL="Nie można znaleźć lub uruchomić skryptu:\n%s"
+
+# Usuwanie wszystkiego
+CONFIGURE_ACCOUNTS_TITLE_DESTRUCTIVE="UWAGA: Destrukcyjna operacja"
+CONFIGURE_ACCOUNTS_TEXT_DELETE_ALL="<span size='large' weight='bold' color='red'>Czy na pewno chcesz usunąć WSZYSTKIE konta?</span>\n\nZostaną wyczyszczone:\n1. Plik accounts.json\n2. Tablice w pliku e-mail.lua\n\nTej operacji nie można cofnąć (chyba że z backupu)."
+CONFIGURE_ACCOUNTS_INFO_ALL_CLEARED="Wszystkie konta zostały usunięte.\nKonfiguracja jest czysta."
+
+# Eksport
+CONFIGURE_ACCOUNTS_TITLE_EXPORT_FILE="Eksportuj konta do pliku"
+CONFIGURE_ACCOUNTS_TITLE_EXPORT_PASS="Zabezpiecz plik eksportu"
+CONFIGURE_ACCOUNTS_TEXT_EXPORT_PASS="Podaj hasło, którym zostanie zaszyfrowany plik eksportu.\nBędzie potrzebne przy imporcie na innym komputerze."
+CONFIGURE_ACCOUNTS_ERR_PASS_MISMATCH_EMPTY="Hasła puste lub nie pasują do siebie."
+CONFIGURE_ACCOUNTS_TITLE_EXPORTING="Eksportowanie"
+CONFIGURE_ACCOUNTS_TEXT_PROCESSING="Przetwarzanie konta"
+CONFIGURE_ACCOUNTS_TEXT_ENCRYPTING="Szyfrowanie pliku wyjściowego..."
+CONFIGURE_ACCOUNTS_INFO_EXPORT_OK="Eksport zakończony sukcesem.\nPlik: %s"
+CONFIGURE_ACCOUNTS_ERR_EXPORT_FAIL="Błąd eksportu."
+
+# Import
+CONFIGURE_ACCOUNTS_TITLE_IMPORT_FILE="Wybierz plik do importu"
+CONFIGURE_ACCOUNTS_TITLE_ENCRYPTED="Plik zaszyfrowany"
+CONFIGURE_ACCOUNTS_TEXT_DECRYPT_PASS="Podaj hasło do odszyfrowania pliku importu:"
+CONFIGURE_ACCOUNTS_ERR_DECRYPT_FAIL="Nie udało się odszyfrować pliku.\nBłędne hasło lub uszkodzony plik."
+CONFIGURE_ACCOUNTS_ERR_JSON_INVALID="Zaimportowana treść nie jest poprawnym formatem JSON."
+CONFIGURE_ACCOUNTS_MSG_IMPORT_CONFIRM="<big>Hasło poprawne. Czy chcesz zaimportować konta?</big>\n\nHasła zostaną automatycznie zaszyfrowane kluczem tego komputera."
+CONFIGURE_ACCOUNTS_TITLE_IMPORT_COLOR="Import: Wybierz kolor dla konta '%s'"
+CONFIGURE_ACCOUNTS_INFO_IMPORT_STATS="Operacja zakończona.\n\nZaimportowano: %s\nPominięto (duplikaty): %s"
+
+# Dodawanie / Edycja Konta
+CONFIGURE_ACCOUNTS_TITLE_ADD="Dodaj nowe konto"
+CONFIGURE_ACCOUNTS_TITLE_EDIT="Edytuj konto: %s"
+CONFIGURE_ACCOUNTS_LBL_NAME_KEY="Nazwa (klucz, bez spacji):"
+CONFIGURE_ACCOUNTS_LBL_HOST="Host IMAP:"
+CONFIGURE_ACCOUNTS_LBL_PORT="Port:"
+CONFIGURE_ACCOUNTS_LBL_ENC="Szyfrowanie:"
+CONFIGURE_ACCOUNTS_LBL_LOGIN="Login (e-mail):"
+CONFIGURE_ACCOUNTS_ERR_FIELDS_EMPTY="Błąd: pola 'Nazwa' i 'Login' nie mogą być puste."
+CONFIGURE_ACCOUNTS_ERR_PORT_NAN="Błąd: Port musi być liczbą."
+CONFIGURE_ACCOUNTS_TITLE_PICK_COLOR="Wybierz kolor konta"
+CONFIGURE_ACCOUNTS_TITLE_CHANGE_COLOR="Zmień kolor konta (anuluj = zachowaj stary)"
+CONFIGURE_ACCOUNTS_ERR_MOD_COLORS="Błąd przy modyfikacji ACCOUNT_COLORS."
+CONFIGURE_ACCOUNTS_ERR_MOD_NAMES="Błąd przy modyfikacji ACCOUNT_NAMES."
+CONFIGURE_ACCOUNTS_ERR_MOD_KEYS="Błąd przy modyfikacji ACCOUNT_KEYS."
+CONFIGURE_ACCOUNTS_INFO_ACC_ADDED="Konto '%s' zostało dodane (kolor: %s)."
+CONFIGURE_ACCOUNTS_INFO_ACC_SAVED="Dane dla konta '%s' zostały zapisane."
+
+# Podmenu Zarządzania Kontem
+CONFIGURE_ACCOUNTS_TITLE_MANAGE="Zarządzaj kontem: %s"
+CONFIGURE_ACCOUNTS_TEXT_ACTION="Wybierz akcję:"
+CONFIGURE_ACCOUNTS_OPT_EDIT_ACC="Edytuj"
+CONFIGURE_ACCOUNTS_OPT_DELETE_ACC="Usuń"
+CONFIGURE_ACCOUNTS_OPT_MOVE_ACC="Przesuń"
+CONFIGURE_ACCOUNTS_MSG_DELETE_CONFIRM="Czy na pewno chcesz usunąć konto '%s'?\n\nTej operacji nie można cofnąć!"
+CONFIGURE_ACCOUNTS_INFO_ACC_DELETED="Konto '%s' zostało usunięte."
+CONFIGURE_ACCOUNTS_TITLE_MOVE="Przesuń konto: %s"
+CONFIGURE_ACCOUNTS_COL_DIRECTION="Kierunek"
+CONFIGURE_ACCOUNTS_OPT_UP="Góra"
+CONFIGURE_ACCOUNTS_OPT_DOWN="Dół"
+CONFIGURE_ACCOUNTS_WARN_TOP="To konto jest już na górze; nie można przesunąć wyżej."
+CONFIGURE_ACCOUNTS_WARN_BOTTOM="To konto jest już na dole; nie można przesunąć niżej."
+CONFIGURE_ACCOUNTS_INFO_MOVED="Konto '%s' zostało przesunięte %s."
+
+# ==============================================================================
+# SKRYPT: Start_and_Restart.sh (3.Start_and_Restart.sh)
+# ==============================================================================
+
+# Tryb Debugowania
+START_RESTART_DEBUG_MSG="\033[1;33mTryb debugowania włączony. Logowanie RAM i generowanie pliku .health przez Pythona będzie aktywne.\033[0m"
+START_RESTART_VENV_ACTIVATION="Aktywuję środowisko venv..."
+
+# Tytuły okien
+START_RESTART_TITLE_MODE_SELECT="Wybierz tryb pracy backendu mailowego"
+START_RESTART_TITLE_POLLING_INTERVAL="Polling – co ile sekund sprawdzać nowe maile?"
+START_RESTART_TITLE_ALREADY_RUNNING="Zupix-Py2Lua-Mail-conky – już działa!"
+START_RESTART_TITLE_RESTART_CONFIRM="Restart Conky Mail"
+START_RESTART_TITLE_VENV_FIX="Automatyczna naprawa venv"
+
+# Wybór trybu (IDLE/POLLING)
+START_RESTART_BTN_IDLE="IDLE (tryb nasłuchu)"
+START_RESTART_BTN_POLLING="POLLING (odpytywanie cykliczne)"
+START_RESTART_TEXT_MODE_DESC="<big><b>Jak chcesz, żeby backend mailowy sprawdzał nowe maile?</b></big>\n\n<b>Tryb <span foreground='green'>IDLE</span>:</b>\n• Łączy się z serwerem IMAP, nasłuchując powiadomień od serwera (przerwań IDLE).\n• Po nadejściu powiadomienia sprawdza zmiany i generuje nowy cache.\n• <b>Niższe zużycie RAM/CPU</b>, polecany jeśli nie chcesz wielu zapytań do serwera i nie zależy Ci na natychmiastowych powiadomieniach.\n\n<b>Tryb <span foreground='red'>POLLING</span>:</b>\n• Co określoną liczbę sekund (którą ustalisz za chwile, jeśli wybierzesz ten tryb) ciągle pobiera wszystkie nieprzeczytane wiadomości z serwera pocztowego i generuje nowy cache.\n• <b>Błyskawiczne powiadomienia o nowych mailach w oknie conky, w każdym cyklu (co zadaną liczbę sekund)</b>.\n• Dobre, jeśli zależy Ci na natychmiastowej reakcji, aczkolwiek niezalecane jeśli Twoja poczta nie toleruje, gdy ciągle w kółko robisz nowe zapytania.\n\n<b>Wybierz tryb:</b>\n<b>IDLE</b> – <i>nasłuchuje zmiany na serwerze</i>  |  <b>POLLING</b> – <i>co kilka sekund sprawdza sam</i>"
+START_RESTART_TEXT_POLLING_ENTRY="Podaj liczbę sekund, co ile program ma odpytywać serwer o nowe maile (np. 5, 10, 30):"
+START_RESTART_ERR_INVALID_INT="❗ Wartość \"%s\" nie jest liczbą całkowitą większą od zera! Skrypt przerwany."
+START_RESTART_INFO_NO_MODE="❗ Nie wybrano trybu działania. Skrypt zostaje przerwany."
+
+# Powiadomienia (Notify-send)
+START_RESTART_NOTIFY_IDLE_SET="⚡ Ustawiono tryb IDLE"
+START_RESTART_NOTIFY_IDLE_DESC="Backend będzie działał w trybie IMAP IDLE"
+START_RESTART_NOTIFY_POLLING_SET="⏳ Ustawiono tryb POLLING"
+START_RESTART_NOTIFY_POLLING_DESC="Backend będzie sprawdzał maile co %s sekund, a cache będzie zapisywany co %s sekund"
+START_RESTART_NOTIFY_ALREADY_RUNNING="ℹ️ Już działa"
+START_RESTART_NOTIFY_ALREADY_DESC="Skrypt jest już uruchomiony w tle. Druga instancja nie wystartuje."
+START_RESTART_NOTIFY_SHUTDOWN_OK="✅ Wyłączono"
+START_RESTART_NOTIFY_SHUTDOWN_DESC="Procesy zakończone poprawnie."
+START_RESTART_NOTIFY_RESTARTING="🔁 Restartuję!"
+START_RESTART_NOTIFY_RESTART_DESC="Ponownie uruchamiam..."
+START_RESTART_NOTIFY_STOPPED="🛑 Zakończono"
+START_RESTART_NOTIFY_STOPPED_DESC="Nie uruchamiam ponownie. Wszystko zamknięte."
+START_RESTART_NOTIFY_MISSING_FILE="❗ Brak pliku"
+START_RESTART_NOTIFY_MISSING_DESC="Nie znaleziono pliku %s. Skrypt zostaje zakończony."
+START_RESTART_NOTIFY_RAM_LIMIT="⚠️ Restart Conky"
+START_RESTART_NOTIFY_RAM_DESC="conkyrc_zupix PID %s przekroczył %s MB RAM. Restartuję..."
+START_RESTART_NOTIFY_VENV_ACTIVATE="🐍 Virtualenv"
+START_RESTART_NOTIFY_VENV_DESC="Aktywuję środowisko Python venv..."
+START_RESTART_NOTIFY_PYTHON_START="▶️ Uruchamiam Pythona"
+START_RESTART_NOTIFY_PYTHON_DESC="Uruchamiam skrypt %s"
+START_RESTART_NOTIFY_WAITING="⏳ Oczekiwanie"
+START_RESTART_NOTIFY_WAITING_DESC="Czekam na utworzenie %s przez Pythona..."
+START_RESTART_NOTIFY_WAITING_LONG="⏳ Nadal czekam"
+START_RESTART_NOTIFY_WAITING_LONG_DESC="To może potrwać dłużej jeśli pobieranych jest dużo maili..."
+START_RESTART_NOTIFY_SUCCESS="✅ Python generuje cache"
+START_RESTART_NOTIFY_SUCCESS_DESC="Skrypt ZupixPyMail.py utworzył %s w %ssek."
+START_RESTART_NOTIFY_FAIL="❌ Błąd uruchamiania!"
+START_RESTART_NOTIFY_FAIL_DESC="Nie utworzono %s – skrypt nie działa lub zakończył się błędem."
+
+# Zarządzanie procesami
+START_RESTART_TEXT_ALREADY_RUNNING="<big><big><b>Zupix_Py2Lua_Mail_conky</b> już działa w tle!</big></big>\n\nCzy chcesz wyłączyć widget i zamknąć WSZYSTKIE powiązane z nim procesy?\n\nWyłączony zostanie proces <b>conky</b>, skrypt - <b>ZupixPyMail.py</b> oraz usunięty cache - <b>/dev/shm/Zupix-Py2Lua-Mail-conky/mail_cache.json</b> + inne pliki tymczasowe.)"
+START_RESTART_TEXT_RESTART_ASK="Czy chcesz ponownie uruchomić skrypt <b>3.Start_and_Restart.sh?</b>"
+START_RESTART_ERR_MISSING_FILE_CONSOLE="Nie znaleziono pliku %s. Kończę działanie."
+
+# Naprawa VENV
+START_RESTART_TEXT_VENV_FIX="Wykryto, że folder projektu został przeniesiony.\nDostosowuję środowisko Python..."
+START_RESTART_TEXT_VENV_STEP1="Wykryto zmianę lokalizacji. Usuwam stare środowisko..."
+START_RESTART_TEXT_VENV_STEP2="Tworzę nowe środowisko Python venv..."
+START_RESTART_TEXT_VENV_STEP3="Instaluję wymagane biblioteki..."
+START_RESTART_TEXT_VENV_OFFLINE="Tryb OFFLINE: Instalacja z folderu lib..."
+START_RESTART_TEXT_VENV_ONLINE="Tryb ONLINE: Pobieranie bibliotek z sieci..."
+START_RESTART_TEXT_VENV_DONE="Naprawa zakończona sukcesem!"
+START_RESTART_ERR_VENV_FAIL="❌ <b>Błąd naprawy środowiska!</b>\n\nNie udało się zainstalować bibliotek lub utworzyć venv.\nUpewnij się, że masz pakiet <tt>python3-venv</tt> oraz folder <tt>lib</tt> (jeśli jesteś offline)."
+START_RESTART_NOTIFY_VENV_READY="✅ Gotowe"
+START_RESTART_NOTIFY_VENV_READY_DESC="Środowisko Python zostało zaktualizowane."
+
+# Błędy startu
+START_RESTART_ERR_STARTUP_FAIL="❌ Błąd uruchamiania!\n\nNie utworzono pliku cache w wymaganym czasie.\nBackend Pythona prawdopodobnie zakończył się błędem.\n\nSprawdź logi w terminalu, z którego uruchomiono ten skrypt, aby poznać przyczynę."
+
+# ==============================================================================
+# SKRYPT: Mark_n_messages_as_unread.sh
+# ==============================================================================
+
+# Okna dialogowe i interakcja
+MARK_N_TITLE_ENTRY="Oznacz jako nieprzeczytane"
+MARK_N_TEXT_ENTRY="Ile najnowszych maili chcesz oznaczyć jako nieprzeczytane na KAŻDYM koncie?\n(Podaj liczbę całkowitą > 0, np. 5, 50, 100)"
+MARK_N_ERR_INVALID="Nieprawidłowa wartość: Skrypt przerwany."
+MARK_N_PROGRESS_TITLE="Oznaczanie maili jako nieprzeczytane"
+MARK_N_PROGRESS_TITLE_TEXT="Oznaczanie wiadomości. Proszę czekać..."
+MARK_N_PROGRESS_TEXT="Oznaczanie <b>%s</b> najnowszych wiadomości jako nieprzeczytane.\n<b>Proszę czekać...</b>"
+MARK_N_UNREAD_MSG_CONFIRM="Wybierz konta, na których chcesz oznaczyć wiadomości jako nieprzeczytane:"
+MARK_N_ACCOUNT_ENTRY="Ile wiadomości oznaczyć dla konta:"
+
+
+# Podsumowanie
+MARK_N_SUMMARY_TITLE="Oznaczanie maili - podsumowanie"
+MARK_N_SUMMARY_DONE="Zakończono!\n\n"
+MARK_N_SUMMARY_OK_HEADER="<b>Sukcesy:</b>"
+MARK_N_SUMMARY_ERR_HEADER="<b><span foreground='red'>Błędy:</span></b>"
+MARK_N_SUMMARY_INFO_HEADER="<b>Informacje:</b>"
+
+# Powiadomienia (Notify-send)
+MARK_N_NOTIFY_APP="Zupix-Py2Lua-Mail-conky"
+MARK_N_NOTIFY_ERR="Zupix-Py2Lua-Mail-conky – błąd"
+MARK_N_NOTIFY_INFO="Zupix-Py2Lua-Mail-conky – informacja"
+
+# Komunikaty Backendowe (Python) - przekazywane przez ENV
+MARK_N_PY_ERR_NO_FILE_ACC="[INFO]<b><span foreground='red'>Brak pliku z kontami:</span></b> %s"
+MARK_N_PY_ERR_NO_ACCOUNTS="[INFO]<b><span foreground='red'>Brak kont w pliku accounts.json!</span></b>"
+MARK_N_PY_INFO_NO_WORK="[INFO]Brak pracy do wykonania (puste INBOXy?)."
+MARK_N_PY_ERR_INBOX_OPEN="[ERR]%s: Nie można otworzyć INBOX w trybie zapisu."
+MARK_N_PY_ERR_FETCH_LIST="[ERR]%s: Nie można pobrać listy maili."
+MARK_N_PY_INFO_NO_MSGS="[INFO]%s: Brak wiadomości do oznaczenia."
+MARK_N_PY_OK_MARKED="[OK]%s: Oznaczono jako nieprzeczytane --> %s wiadomości."
+MARK_N_PY_ERR_SERVER="[ERR]%s: Błąd serwera podczas masowego oznaczania."
+MARK_N_PY_EXC_IMAP="[ERR]%s: Wyjątek IMAP: %s"
+MARK_N_PY_ERR_GENERIC="[ERR]%s: Problem: %s"
+
+# ==============================================================================
+# SKRYPT: Mark_all_messages_as_read.sh
+# ==============================================================================
+
+# Okna dialogowe
+MARK_ALL_TITLE_PROGRESS="Oznaczanie maili"
+MARK_ALL_TEXT_PROGRESS="Oznaczanie wszystkich maili jako przeczytane.\nProszę czekać..."
+MARK_ALL_TITLE_SUMMARY="Oznaczanie wiadomości - podsumowanie"
+MARK_ALL_READ_MSG_CONFIRM="Wybierz konta, na których chcesz oznaczyć wiadomości jako przeczytane:"
+
+# Podsumowanie i nagłówki
+MARK_ALL_TEXT_DONE="<big>Zakończono!</big>\n\n"
+MARK_ALL_HEADER_SUMMARY="<b>Podsumowanie:</b>"
+MARK_ALL_HEADER_ERRORS="<b><span foreground='red'>Błędy:</span></b>"
+
+# Powiadomienia
+MARK_ALL_NOTIFY_APP="Zupix-Py2Lua-Mail-conky"
+MARK_ALL_NOTIFY_ERR_TITLE="Zupix-Py2Lua-Mail-conky – błąd"
+MARK_ALL_NOTIFY_INFO_TITLE="Zupix-Py2Lua-Mail-conky – informacja"
+
+# Backend Python (Komunikaty)
+MARK_ALL_PY_ERR_NO_FILE="[INFO]<b><span foreground='red'>Brak pliku z kontami:</span></b> %s"
+MARK_ALL_PY_ERR_NO_ACCOUNTS="[INFO]<b><span foreground='red'>Brak kont w pliku accounts.json!</span></b>"
+MARK_ALL_PY_ERR_INBOX="[ERR]%s: Nie można otworzyć INBOX w trybie zapisu."
+MARK_ALL_PY_ERR_SEARCH="[ERR]%s: Nie można pobrać listy wiadomości."
+MARK_ALL_PY_INFO_NONE="[INFO]%s: Brak nieprzeczytanych wiadomości."
+MARK_ALL_PY_OK_MARKED="[OK]%s: Oznaczono jako przeczytane --> %s wiadomości."
+MARK_ALL_PY_ERR_STORE="[ERR]%s: Błąd serwera przy masowym oznaczaniu."
+MARK_ALL_PY_ERR_STORE_EXC="[ERR]%s: Błąd podczas zapisu flag: %s"
+MARK_ALL_PY_ERR_CRITICAL="[ERR]%s: Problem krytyczny: %s"
+
+#==============================================================================
+# WSPÓLNE DLA SKRYPTÓW POMOCNICZYCH (Decryption)
+# ==============================================================================
+HELPER_TITLE_AUTH="Wymagana autoryzacja"
+HELPER_TEXT_AUTH="Wykryto zaszyfrowane konta.\nPodaj <b>Hasło Główne</b>, aby odblokować dostęp:"
+HELPER_ERR_DECRYPT="[ERR]Błąd deszyfrowania dla konta %s. Złe hasło główne?"
+HELPER_ERR_CANCEL="Anulowano. Hasło jest wymagane do działania."    
+HELPER_ERR_AUTH_FAIL="Błąd autoryzacji! Podano nieprawidłowe Hasło Główne."
+
+# ==============================================================================
+# SKRYPT: Change_layout_and_scaling.sh
+# ==============================================================================
+
+# Rysunki ASCII w podglądzie (Nagłówki)
+LAYOUT_ASCII_TITLE_4K="UKŁADY 4K (Oryginalne, duże)"
+LAYOUT_ASCII_TITLE_FULLHD="UKŁADY FullHD (Ręcznie zmniejszone)"
+LAYOUT_ASCII_DESC_FULLHD="(Układy są wizualnie takie same, ale mają mniejsze\nwymiary i czcionki zdefiniowane w kodzie Lua)"
+
+# Zenity - Podgląd ASCII
+LAYOUT_TITLE_PREVIEW="Podgląd wszystkich układów maili (ASCII)"
+
+# Zenity - Krok 1 (Wybór układu)
+LAYOUT_TITLE_STEP1="KROK 1/2: Wybierz układ maili"
+LAYOUT_COL_CODE="Kod układu"
+LAYOUT_COL_DESC="Opis (automatycznie wybiera zestaw wymiarów)"
+LAYOUT_GRP_4K="──────────── UKŁADY 4K (Duże) ────────────"
+LAYOUT_GRP_FULLHD="──────────── UKŁADY FullHD (Mniejsze) ────────────"
+LAYOUT_GRP_REVERSE="────── (REVERSE) ──────"
+
+# Opisy poszczególnych układów
+LAYOUT_DESC_UP_MID="Góra, środek."
+LAYOUT_DESC_DOWN_MID="Dół, środek."
+LAYOUT_DESC_DOWN_RIGHT="Dół, prawy róg."
+LAYOUT_DESC_UP_RIGHT="Góra, prawy róg."
+LAYOUT_DESC_DOWN_LEFT="Dół, lewy róg."
+LAYOUT_DESC_UP_LEFT="Góra, lewy róg."
+LAYOUT_DESC_DOWN_RIGHT_REV="Dół, prawy róg (lustrzany)."
+LAYOUT_DESC_UP_RIGHT_REV="Góra, prawy róg (lustrzany)."
+
+# Zenity - Krok 2 (Formularz parametrów)
+LAYOUT_TITLE_STEP2="KROK 2/2: Parametry"
+LAYOUT_MODE_4K="4K (Duży)"
+LAYOUT_MODE_FULLHD="FullHD (Mniejszy)"
+LAYOUT_TEXT_CURRENT="Obecnie: Maili=[%s], Skala=[%s%%], Szerokość=[%spx]"
+LAYOUT_LBL_MAILS_COUNT="Liczba maili (zalecane: 1-40)"
+LAYOUT_LBL_SCALE="Skala widgetu w % (np. 100)"
+LAYOUT_LBL_WIDTH="Szerokość bloku maili w px"
+
+# Błędy i powiadomienia
+LAYOUT_NOTIFY_CLOSED="Zamknięto konfigurator."
+LAYOUT_NOTIFY_SEPARATOR="Wybrano separator - wybierz poprawny układ."
+LAYOUT_NOTIFY_CANCEL="Anulowano konfigurację."
+LAYOUT_ERR_NUMBERS="Błąd! Wszystkie wartości muszą być liczbami całkowitymi.\nSpróbuj ponownie."
+LAYOUT_ERR_LOCK="Inna instancja skryptu działa!"
+
+# Podsumowanie
+LAYOUT_INFO_DONE="Gotowe!\n\nUkład: %s\nLiczba maili: %s\nSzerokość maili: %spx\nSkala: %s%%\nNowe wymiary okna: %sx%s\n\nConky został zrestartowany."
+
+# ==============================================================================
+# MAPOWANIE NAZW PLIKÓW (Symlinki w Root)
+# ==============================================================================
+FN_1_INSTALL="1.Instalacja_zależności.sh"
+FN_2_CONFIG="2.Konfiguracja_kont.sh"
+FN_3_START="3.Start_i_Restart.sh"
+FN_CHANGE_ACC="Zmień_wyświetlane_konto.sh"
+FN_CHANGE_LAYOUT="Zmień_wygląd_i_skalowanie.sh"
+FN_CONFIG_AVATARS="Konfiguracja_awatarów.sh"
+FN_MARK_ALL_READ="Oznacz_wszystkie_jako_przeczytane.sh"
+FN_MARK_N_UNREAD="Oznacz_n_wiadomości_jako_nieprzeczytane.sh"
+FN_SCROLL_DOWN="Przewiń_listę_w_dół.sh"
+FN_SCROLL_UP="Przewiń_listę_w_górę.sh"

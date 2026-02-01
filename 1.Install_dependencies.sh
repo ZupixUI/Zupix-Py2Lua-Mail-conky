@@ -1,0 +1,1 @@
+scripts/GUI/1.Install_dependencies.sh

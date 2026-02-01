@@ -1,0 +1,569 @@
+# ==============================================================================
+# GLOBAL (Common for the whole project)
+# ==============================================================================
+GLOBAL_ERR_JQ_MISSING="❌ <b>Dependency Error</b>\n\nThe <tt>jq</tt> tool is not installed.\nIt is required to safely read the configuration.\n\nPlease install it."
+GLOBAL_ERR_LANG_FILE_MISSING="Critical error: Language file not found:"
+GLOBAL_OPTION_EXIT="Exit"
+
+# ==============================================================================
+# SCRIPT: Change_displayed_account.sh
+# ==============================================================================
+# Script specific errors
+CHANGE_DISPLAYED_ACCOUNT_ERR_CONFIG_MISSING="Accounts file missing:"
+CHANGE_DISPLAYED_ACCOUNT_ERR_NO_ACCOUNTS="No accounts found in file:\n"
+
+# Menu (Zenity)
+CHANGE_DISPLAYED_ACCOUNT_MENU_TITLE="Select account"
+CHANGE_DISPLAYED_ACCOUNT_MENU_COLUMN="Available accounts"
+CHANGE_DISPLAYED_ACCOUNT_OPTION_MULTI="Multi-account --> All accounts on the list"
+
+# Notifications
+CHANGE_DISPLAYED_ACCOUNT_NOTIFY_TITLE="Zupix-Py2Lua-Mail-conky"
+CHANGE_DISPLAYED_ACCOUNT_NOTIFY_MSG_SELECTED="Selected:"
+CHANGE_DISPLAYED_ACCOUNT_NOTIFY_MSG_NUM="number"
+
+# ==============================================================================
+# SCRIPT: Change_language.sh
+# ==============================================================================
+CHANGE_LANGUAGE_MENU_TITLE="Change Language"
+CHANGE_LANGUAGE_MENU_COLUMN="Available language files"
+CHANGE_LANGUAGE_SUCCESS_TITLE="Success"
+CHANGE_LANGUAGE_SUCCESS_MSG="Language changed to:"
+CHANGE_LANGUAGE_ERR_NO_FILES="No .lang files found in:"
+
+# ==============================================================================
+# SCRIPT: Configure_avatars.sh (Avatar Manager)
+# ==============================================================================
+# Window Titles
+AVATAR_MANAGER_TITLE_MAIN="Zupix Avatar Manager v1.0"
+AVATAR_MANAGER_TITLE_JSON_ERR="JSON Syntax Error"
+AVATAR_MANAGER_TITLE_DISK_CLEAN="Disk Cleanup"
+AVATAR_MANAGER_TITLE_IMPORT="File Import"
+AVATAR_MANAGER_TITLE_CATEGORY="Category"
+AVATAR_MANAGER_TITLE_SELECTION_ERR="Selection Error"
+AVATAR_MANAGER_TITLE_ADD_NEW="Add New"
+AVATAR_MANAGER_TITLE_DELETE="Deleting"
+AVATAR_MANAGER_TITLE_FILE_SELECT="Select image for:"
+AVATAR_MANAGER_TITLE_EDIT="Editing:"
+
+# Errors and Warnings
+AVATAR_MANAGER_ERR_JSON_BROKEN="The configuration file is corrupted.\n\n<b>Error details:</b>\n<span color='red'>%s</span>%s\n\nWhat do you want to do?"
+AVATAR_MANAGER_ERR_ZENITY_MISSING="Zenity is missing."
+AVATAR_MANAGER_ERR_JQ_MISSING="jq is missing."
+AVATAR_MANAGER_ERR_EMAIL_EXISTS="This email already exists. Use edit."
+AVATAR_MANAGER_WARN_HEADER_SELECT="<b>This is a category header.</b>\n\nIt cannot be edited or deleted.\nPlease select a specific email address below."
+
+# Info texts and Questions
+AVATAR_MANAGER_TEXT_MAIN_DESC="Manage avatars in folders.\n"
+AVATAR_MANAGER_TEXT_DISK_CLEAN="Entry removed from database.\n\nDo you want to delete the image file as well?\n<b>%s</b>"
+AVATAR_MANAGER_TEXT_IMPORT_QUESTION="Copy file to project folder?\n\n<b>YES</b> - Keeps folders organized (Categories).\n<b>NO</b> - Uses file from current location."
+AVATAR_MANAGER_TEXT_CATEGORY_ENTRY="Select or type folder name:"
+AVATAR_MANAGER_TEXT_OVERWRITE="File '%s' exists in '%s'. Overwrite?"
+AVATAR_MANAGER_TEXT_ADD_EMAIL="Enter email address:"
+AVATAR_MANAGER_TEXT_SELECT_DELETE="Select entry to delete:"
+AVATAR_MANAGER_TEXT_CONFIRM_DELETE="Delete entry for:\n<b>%s</b>?"
+AVATAR_MANAGER_TEXT_OPTIONS_FOR="Options for: <b>%s</b>"
+
+# Buttons and Labels
+AVATAR_MANAGER_BTN_EXIT_MANUAL="Exit (I will fix manually)"
+AVATAR_MANAGER_BTN_RESET_FILE="Reset file"
+AVATAR_MANAGER_BTN_YES_DELETE="Yes, delete file"
+AVATAR_MANAGER_BTN_NO_KEEP="No, keep file"
+AVATAR_MANAGER_BTN_EDIT="Edit"
+AVATAR_MANAGER_BTN_ADD_NEW="Add new"
+AVATAR_MANAGER_BTN_DELETE_SELECTED="Delete selected"
+
+# List elements and Categories
+AVATAR_MANAGER_COL_EMAIL_CAT="E-mail / Category"
+AVATAR_MANAGER_COL_PATH="File Path"
+AVATAR_MANAGER_COL_ACTION="Action"
+AVATAR_MANAGER_CAT_EXTERNAL="External / Others"
+AVATAR_MANAGER_CAT_ROOT="General (Root)"
+AVATAR_MANAGER_LIST_NO_DATA="No data"
+AVATAR_MANAGER_LIST_ADD_HINT="Add new entry..."
+AVATAR_MANAGER_FILTER_IMAGES="Images"
+
+# Edit Menu Actions
+AVATAR_MANAGER_ACTION_CHANGE_IMG="Change image"
+AVATAR_MANAGER_ACTION_DELETE_ENTRY="Delete this entry"
+AVATAR_MANAGER_ACTION_CANCEL="Cancel"
+
+# Notifications
+AVATAR_MANAGER_NOTIFY_RESET="Configuration file reset."
+AVATAR_MANAGER_NOTIFY_FILE_DELETED="File deleted from disk."
+AVATAR_MANAGER_NOTIFY_ADDED="Added:"
+AVATAR_MANAGER_NOTIFY_UPDATED="Updated."
+
+# ==============================================================================
+# SCRIPT: Install_dependencies.sh (1.Instalacja_zależności.sh)
+# ==============================================================================
+
+# Headers and Titles
+INSTALL_DEPENDENCIES_TITLE_MAIN="Zupix-Py2Lua-Mail-conky - Installing dependencies"
+INSTALL_DEPENDENCIES_TITLE_ERROR="Problem occurred"
+INSTALL_DEPENDENCIES_TITLE_ABORT="Installation aborted"
+INSTALL_DEPENDENCIES_TITLE_DISTRO="Select your Linux distribution"
+INSTALL_DEPENDENCIES_TITLE_NOTIFY_MISSING="Missing notify-send tool"
+INSTALL_DEPENDENCIES_TITLE_NOTIFY_INSTALLING="Installing notify-send"
+INSTALL_DEPENDENCIES_TITLE_OM_ROLLING="OpenMandriva Rolling Configuration"
+INSTALL_DEPENDENCIES_TITLE_TEMP_INSTALL="Confirm temporary installation"
+INSTALL_DEPENDENCIES_TITLE_OM_ROCK="OpenMandriva Lx (Rock/Vanadium)"
+INSTALL_DEPENDENCIES_TITLE_UNKNOWN_SYSTEM="Unsupported system"
+INSTALL_DEPENDENCIES_TITLE_GENTOO="Gentoo Linux detected"
+INSTALL_DEPENDENCIES_TITLE_CONFIRM_SKIP="Confirm skip"
+INSTALL_DEPENDENCIES_TITLE_VENV_PROGRESS="Python venv & libraries"
+INSTALL_DEPENDENCIES_TITLE_SUCCESS="Success! 🎉"
+
+# Error messages and Warnings
+INSTALL_DEPENDENCIES_ERR_UNEXPECTED="Unexpected error in script!"
+INSTALL_DEPENDENCIES_ERR_SECTION="Script section: <tt>%s</tt>\n\nIf you cannot solve the problem yourself, report the bug to the project author."
+INSTALL_DEPENDENCIES_ERR_TERMINAL_MISSING="Terminal emulator not found!"
+INSTALL_DEPENDENCIES_ERR_LSB_MISSING="❗ <b>Command <tt>lsb_release</tt> not found in system.</b>\n\nThis command is used for automatic Linux version detection.\n\nIn the next step you <b>must manually select your distribution from the list</b>.\n\nIf it is not on the list, select 'No system on list'."
+INSTALL_DEPENDENCIES_ERR_USER_CANCEL="User closed the installer window or cancelled the selection.\nScript terminates."
+INSTALL_DEPENDENCIES_ERR_NIXOS="On NixOS include zenity in configuration.nix (environment.systemPackages).\nExample: environment.systemPackages = with pkgs; [ zenity ];"
+INSTALL_DEPENDENCIES_ERR_NIXOS_NOTIFY="On NixOS install notify-send via configuration.nix"
+INSTALL_DEPENDENCIES_ERR_NIXOS_PACKAGES="ℹ️ <b>NixOS detected.</b>\nManually install packages: conky, lua, wget and noto-fonts-emoji via configuration.nix."
+INSTALL_DEPENDENCIES_ERR_DKJSON_MKDIR="Cannot create directory: %s"
+INSTALL_DEPENDENCIES_ERR_DKJSON_WGET="Error downloading dkjson.lua"
+INSTALL_DEPENDENCIES_ERR_DKJSON_MV="Error saving dkjson.lua"
+INSTALL_DEPENDENCIES_ERR_VENV_MODULE="Missing venv module in Python.\nOn Debian/Ubuntu/Mint systems install package: python3-venv."
+INSTALL_DEPENDENCIES_ERR_FILE_MISSING="File \"%s\" not found!"
+INSTALL_DEPENDENCIES_ERR_VENV_ABORTED="❗ <b>Python venv environment or library installation aborted.</b>\n\nThe user cancelled the progress bar, closed the window, or clicked the <b>Cancel</b> button.\nScript is terminating."
+
+# Distro detection (Manual)
+INSTALL_DEPENDENCIES_COL_DISTRO="Distribution"
+INSTALL_DEPENDENCIES_OPT_NO_SYSTEM="System not on list"
+INSTALL_DEPENDENCIES_ERR_NO_DISTRO_SELECTED="Command lsb_release not found, and user did not select any supported distribution."
+INSTALL_DEPENDENCIES_SEC_DETECT_DISTRO="DISTRO DETECTION"
+
+# Zenity - Missing (Emergency mode)
+INSTALL_DEPENDENCIES_ZENITY_ONCE="🔁 Script already tried installing zenity. Run it again if installation succeeded."
+INSTALL_DEPENDENCIES_ZENITY_HEADER="Missing required program ZENITY - (GUI)."
+INSTALL_DEPENDENCIES_ZENITY_HEADER_OM="Missing required program ZENITY - (GUI).\n\nSpecial exception for OpenMandriva:\nRemoving zenity replacement 'qarma' which breaks the script + installing full 'zenity-gtk'."
+INSTALL_DEPENDENCIES_ZENITY_INSTALL_MSG="The following installation command will be executed:\n\n    %s ; %s\n\nPress Enter to start installation..."
+INSTALL_DEPENDENCIES_ZENITY_DONE_MSG="--- Zenity installation finished. Press Enter to close terminal... ---"
+INSTALL_DEPENDENCIES_ZENITY_ASK_DISTRO="Missing required program ZENITY.\nSelect your distribution:\n  1) Debian/Ubuntu/Mint\n  2) Arch/Manjaro/Garuda/EndeavourOS/Artix\n  3) Fedora\n  4) openSUSE\n  5) Solus\n  6) OpenMandriva\n  7) Mageia\n  8) Gentoo\n\nNumber [1-8]: "
+
+# Notify-send
+INSTALL_DEPENDENCIES_NOTIFY_ASK="🔔 <big><b>Missing tool <tt>notify-send</tt>.</b></big>\n\nPackage: <b><tt>%s</tt></b>\n\nAfter installation script will <b>restart from beginning</b> and complete the work.\n\nDo you want to install now?"
+INSTALL_DEPENDENCIES_NOTIFY_INFO="<big><b>Installation of <tt>%s</tt> started in terminal.</b></big>\n\nIf asked for password — type it in terminal.\n\nWhen installation finishes, click <b>OK</b>. Script will restart and check environment."
+INSTALL_DEPENDENCIES_NOTIFY_FAIL="It looks like <tt>notify-send</tt> is still not available.\nTrying to restart script.\nIf problem persists — manually install package <b>%s</b> and run script again."
+
+# OpenMandriva & Repositories
+INSTALL_DEPENDENCIES_OM_REPO_OFF="ℹ️ <big><b>Required 'Extra' repository is disabled.</b></big>"
+INSTALL_DEPENDENCIES_OM_REPO_OFF_AGAIN="<span foreground='red'>⛔ <big><big><b>Required 'Extra' repository is STILL disabled!</b></big></big></span>"
+INSTALL_DEPENDENCIES_OM_REPO_TEXT="%s\n\nPackage <b>conky</b> is located in <tt>rolling-x86_64-extra</tt> repository.\nTo receive updates, it is recommended to enable it in system settings.\n\nWhat do you want to do?"
+INSTALL_DEPENDENCIES_OM_TEMP_WARN="ℹ️ <b>Temporary installation mode selected.</b>\n\nScript will force installation of package <b>conky</b> using repository <tt>rolling-x86_64-extra</tt> <b>only once</b>.\n\n⚠️ <b>System configuration will not be changed permanently.</b>\nThis means conky package will install correctly, but system might not detect updates automatically in future.\n\nDo you want to continue?"
+INSTALL_DEPENDENCIES_OM_ROCK_WARN="⚠️ <big><b>Stable OpenMandriva (Rock) version detected.</b></big>\n\nFor widget to work correctly, installer will download newer version of package <tt>conky</tt> (with Lua/Cairo support) using <b>Rolling</b> repository.\n\nDo you agree to temporarily download package from newer system?\n(This won't affect stability of rest of the system)."
+INSTALL_DEPENDENCIES_OM_REFRESHING="🔄 <b>Refreshing package database...</b>\n\nPlease wait, checking changes."
+INSTALL_DEPENDENCIES_OM_VERIFYING="🔍 Verifying..."
+
+# Packages and Installation (Main loop)
+INSTALL_DEPENDENCIES_MANUAL_TEXT="<big><b>Emergency mode: manual installation.</b></big>\n\nMissing packages:\n<b><tt>%s</tt></b>\n\nRun the following command in terminal:\n<b><tt>%s</tt></b>\n\nClick <b>Open terminal</b> to open blank terminal.\nAfter installation click <b>OK</b>, and script will check dependencies."
+INSTALL_DEPENDENCIES_SKIP_WARN="<big>⚠️ <b>Are you sure you want to skip dependency check?</b></big>\n\n<span foreground='red'>Skipping this step means script won't verify if required packages (Conky, Lua, Wget etc.) are installed.</span>\n\nIf they are missing, widget won't start correctly or errors will occur.\n\nAre you aware of risk and want to continue?"
+INSTALL_DEPENDENCIES_UNKNOWN_HEADER="<span foreground='red'><big><big><b>Package manager not recognized!</b></big></big></span>"
+INSTALL_DEPENDENCIES_UNKNOWN_TEXT="<big><big>🖥️ OS: <b>%s</b> | Version: <b>%s</b></big></big>\n\n%s\n\nScript has no automatic installation rules for this system.\nYou must manually install following packages:\n\n<tt>%s</tt>\n\n• <b>Don't check dependencies</b> - Click to skip system package verification and proceed to Python venv configuration.\n• <b>Cancel</b> – Terminate script."
+INSTALL_DEPENDENCIES_MISSING_HEADER="🔧 <big><b>The following packages must be installed in system:</b></big>"
+INSTALL_DEPENDENCIES_MISSING_HEADER_AGAIN="<span foreground='red'>🔧 <big><big><b>The following packages are still missing in system!</b></big></big></span>"
+INSTALL_DEPENDENCIES_MISSING_TEXT="<big><big>🖥️ OS: <b>%s</b> | Version: <b>%s</b></big></big>\n\n%s\n\n<b><tt>%s</tt></b>\n\n• <b>Installation</b> - Click for script to guide you through automatic installation of needed dependencies.\n• <b>Everything OK</b> - Click if dependencies were installed successfully. Script will check validity.\n• <b>Safe mode</b> - Click in case of problems with automatic installation. You will get command to execute manually in terminal.\n• <b>Cancel</b> – terminates script."
+INSTALL_DEPENDENCIES_AUTO_INSTALL_TEXT="<big><b>Automatic installation started in terminal.\nIf needed, type sudo password.</b></big>\n\nMissing dependencies (installing):\n<b><tt>%s</tt></b>\n\nAfter installation finishes in terminal click <b>Everything OK</b> to check again.\nIf you encounter problem, use <b>Safe mode</b>."
+
+# Conky Lua Check
+INSTALL_DEPENDENCIES_LUA_FAIL="⚠️ Conky installed in system does NOT support Lua. Mail widget won't work."
+INSTALL_DEPENDENCIES_LUA_FAIL_V="⚠️ <b>conky -v</b> does not return Lua support. Mail widget won't work."
+INSTALL_DEPENDENCIES_LUA_UNKNOWN="ℹ️ <b>Conky has Lua support</b>, but runtime version could not be determined.\n<b>Available Lua commands in system:</b> %s\nWidget will likely work correctly."
+INSTALL_DEPENDENCIES_LUA_UNKNOWN_NO_CMD="ℹ️ <b>Conky has Lua support</b>, but runtime version could not be determined.\nNo lua/lua5.x commands found in system.\nWidget will likely work correctly."
+INSTALL_DEPENDENCIES_LUA_OK_CMD="✅ <b>Compatibility:</b> Conky compiled with Lua library <b>%s</b> (runtime).\n<b>Available Lua commands in system:</b> %s\nℹ️ Additional versions don't interfere — Conky always uses its runtime library."
+INSTALL_DEPENDENCIES_LUA_OK_ONLY="✅ <b>Compatibility:</b> Conky compiled with Lua library <b>%s</b> (runtime).\nℹ️ Widget will work correctly."
+INSTALL_DEPENDENCIES_LUA_OK_CMD_WARN="✅ <b>Conky compiled with Lua library <b>%s</b> (runtime).</b>\n<b>Lua commands detected in system:</b> %s\nℹ️ This is normal — Conky always uses its runtime library, regardless of what Lua commands are in PATH."
+INSTALL_DEPENDENCIES_LUA_OK_NO_CMD_WARN="✅ <b>Conky compiled with Lua library <b>%s</b> (runtime).</b>\nNo lua/lua5.x commands detected in system.\nℹ️ This doesn't interfere — Conky always uses its runtime library."
+
+# DKJSON & VENV
+INSTALL_DEPENDENCIES_DKJSON_DL_OK="<big>✅ File <b>dkjson.lua</b> downloaded!</big>\n\n📂 Location:\n<tt>%s</tt>"
+INSTALL_DEPENDENCIES_DKJSON_EXISTS="<big>✅ File <b>dkjson.lua</b> already exists.</big>\n\n📂 Location:\n<tt>%s</tt>"
+INSTALL_DEPENDENCIES_VENV_EXISTS="🖋 <b>Python venv environment already detected:</b>\n\n<tt>%s</tt>\n\nWhat do you want to do?\n(Recreating is recommended after moving project or library issues)"
+INSTALL_DEPENDENCIES_VENV_DETECED="Existing venv detected:"
+INSTALL_DEPENDENCIES_VENV_EXISTING_ONE="I am using an existing venv."
+INSTALL_DEPENDENCIES_VENV_DEL="Deleting old venv environment..."
+INSTALL_DEPENDENCIES_VENV_ABORT="The operation was interrupted by the user."
+INSTALL_DEPENDENCIES_VENV_PROGRESS_TEXT="Preparing environment..."
+INSTALL_DEPENDENCIES_VENV_PANIC="An unexpected case when choosing the venv option!"
+INSTALL_DEPENDENCIES_VENV_DONE="<big>📦 Packages <b>imapclient</b> and <b>beautifulsoup4</b> installed in venv:</big>\n<tt>%s</tt>"
+INSTALL_DEPENDENCIES_NEXT_SCRIPT="<big><big>Script finished its job 😊</big></big>\nDo you want to run next script <b>\"2.Configure_accounts.sh\"</b> now to help you configure email accounts?\n<span foreground='red'>This is necessary for widget to work correctly.</span>"
+INSTALL_DEPENDENCIES_NEXT_MANUAL="<b>✅ Installation finished.</b> You can now manually run script: <b>2.Configure_accounts.sh</b>"
+
+# --- ADDITION: VENV installation progress section (1.Instalacja_zależności.sh) ---
+INSTALL_DEPENDENCIES_VENV_STEP_CREATE="Creating new venv environment..."
+INSTALL_DEPENDENCIES_VENV_ERR_PYTHON3="Error: python3 missing!"
+INSTALL_DEPENDENCIES_VENV_ERR_CREATE="Error creating venv!"
+INSTALL_DEPENDENCIES_VENV_STEP_PIP="Checking for pip update..."
+INSTALL_DEPENDENCIES_VENV_ERR_PIP="Error updating pip!"
+INSTALL_DEPENDENCIES_VENV_STEP_LIBS="Installing Python libraries (imapclient, beautifulsoup4)..."
+INSTALL_DEPENDENCIES_VENV_STEP_OFFLINE="OFFLINE mode: Installing from lib folder..."
+INSTALL_DEPENDENCIES_VENV_ERR_OFFLINE="Error installing libraries from lib folder!"
+INSTALL_DEPENDENCIES_VENV_STEP_ONLINE="ONLINE mode: Downloading from internet..."
+INSTALL_DEPENDENCIES_VENV_ERR_LIBS="Error installing Python libraries!"
+INSTALL_DEPENDENCIES_VENV_STEP_SKIP="Skipping installation (using existing venv)..."
+INSTALL_DEPENDENCIES_VENV_STEP_DONE="Done! Required Python libraries installed."
+
+# Buttons
+INSTALL_DEPENDENCIES_BTN_INSTALL="Install now"
+INSTALL_DEPENDENCIES_BTN_OK_CHECK="Everything OK / Check again"
+INSTALL_DEPENDENCIES_BTN_OM_SELECTOR="Open Software Repository Selector"
+INSTALL_DEPENDENCIES_BTN_OM_TEMP="Temporary installation (Emergency)"
+INSTALL_DEPENDENCIES_BTN_INSTALL_TEMP="Install"
+INSTALL_DEPENDENCIES_BTN_YES_AGREE="Yes, I agree"
+INSTALL_DEPENDENCIES_BTN_NO_AGREE="No"
+INSTALL_DEPENDENCIES_BTN_OPEN_TERM="Open terminal"
+INSTALL_DEPENDENCIES_BTN_NO_CHECK="Don't check dependencies"
+INSTALL_DEPENDENCIES_BTN_INSTALL_AUTO="Installation"
+INSTALL_DEPENDENCIES_BTN_SAFE_MODE="Safe mode"
+INSTALL_DEPENDENCIES_BTN_OK_ALL="Everything OK"
+INSTALL_DEPENDENCIES_BTN_RECREATE="Yes, recreate"
+INSTALL_DEPENDENCIES_BTN_LEAVE="No, leave"
+
+# GENTOO & MANUAL (Advanced)
+INSTALL_DEPENDENCIES_GENTOO_HEADER_ANSI="💜 Gentoo Linux Detected 💜"
+INSTALL_DEPENDENCIES_GENTOO_MANUAL_HEADER_ANSI="💜 Gentoo: Manual Installation 💜"
+INSTALL_DEPENDENCIES_GENTOO_FAIL_HEADER_ANSI="❌ Still not detected. Check installation process."
+INSTALL_DEPENDENCIES_GENTOO_SUCCESS_HEADER_ANSI="✅ Success! Package detected. Resuming..."
+
+INSTALL_DEPENDENCIES_GENTOO_ZENITY_BODY="The script requires ZENITY to display dialog windows.\nOn Gentoo, we do not perform automatic system package installation."
+INSTALL_DEPENDENCIES_GENTOO_ZENITY_CMD_INTRO="Please open a new terminal and run:"
+INSTALL_DEPENDENCIES_GENTOO_ZENITY_WAIT="When installation is finished, return here.\nPress Enter to check for zenity again..."
+
+INSTALL_DEPENDENCIES_GENTOO_NOTIFY_BODY="The script requires NOTIFY-SEND tool to display notifications.\nPackage: x11-libs/libnotify"
+INSTALL_DEPENDENCIES_GENTOO_NOTIFY_WAIT="When installation is finished, return here.\nPress Enter to check again..."
+
+INSTALL_DEPENDENCIES_CLI_ZENITY_MISSING="Missing required program ZENITY."
+INSTALL_DEPENDENCIES_CLI_ZENITY_INSTRUCTION="The following command will be launched in a new terminal window:"
+INSTALL_DEPENDENCIES_CLI_ZENITY_START_PROMPT="Press Enter to start installation..."
+INSTALL_DEPENDENCIES_CLI_ZENITY_DONE_PROMPT="--- Installation finished. Press Enter to close terminal ---"
+INSTALL_DEPENDENCIES_CLI_GENTOO_MANUAL_INSTRUCTION="Run in another window: sudo emerge -av gnome-extra/zenity"
+INSTALL_DEPENDENCIES_CLI_GENTOO_MANUAL_WAIT="Press Enter after installing zenity..."
+
+INSTALL_DEPENDENCIES_GENTOO_PKG_LIST="<b>app-admin/conky</b> - required USE flags: <b>lua-cairo</b>, <b>lua-cairo-xlib</b>, <b>bundled-toluapp</b> \n<b>dev-lang/lua</b>\n<b>net-misc/wget</b>\n<b>app-misc/jq</b>\n<b>media-fonts/noto-emoji</b> (or others, e.g. Google Fonts)\nPython venv (usually built-in with <b>dev-lang/python</b>)"
+INSTALL_DEPENDENCIES_UNKNOWN_PKG_LIST="<b>conky</b> (with cairo support), <b>lua</b>, <b>wget</b>, <b>venv</b> for python, <b>jq</b>, <b>fonts-noto-color-emoji</b> (or similar package providing \"Color emoji font from Google\")"
+
+# ==============================================================================
+# SCRIPT: Configure_accounts.sh (2.Configure_accounts.sh)
+# ==============================================================================
+# Dependencies and System Errors
+CONFIGURE_ACCOUNTS_ERR_MISSING_DEP="Dependency missing"
+CONFIGURE_ACCOUNTS_ERR_JQ_MSG="'jq' tool is not installed.\nInstall with: sudo apt install jq"
+CONFIGURE_ACCOUNTS_ERR_PERL_MSG="'perl' tool is not installed.\nIt is required to modify Lua configuration file.\n\nPlease install it and try again."
+CONFIGURE_ACCOUNTS_ERR_OPENSSL_MSG="'openssl' tool is not installed.\nIt is required for password encryption.\nInstall with: sudo apt install openssl"
+CONFIGURE_ACCOUNTS_ERR_FILE_NOT_FOUND="File '%s' does not exist."
+CONFIGURE_ACCOUNTS_ERR_NO_WRITE_PERM="No write permission for '%s'."
+
+# Master Password
+CONFIGURE_ACCOUNTS_TITLE_SET_MASTER="Set Master Password"
+CONFIGURE_ACCOUNTS_TEXT_SET_MASTER="This password will be required every time you run the configurator."
+CONFIGURE_ACCOUNTS_LBL_PASS="Password:"
+CONFIGURE_ACCOUNTS_LBL_PASS_REPEAT="Repeat password:"
+CONFIGURE_ACCOUNTS_ERR_PASS_EMPTY="Password cannot be empty."
+CONFIGURE_ACCOUNTS_ERR_PASS_MISMATCH="Passwords do not match."
+CONFIGURE_ACCOUNTS_INFO_MASTER_SET="Master password has been set."
+CONFIGURE_ACCOUNTS_TITLE_AUTH="Authentication Required"
+CONFIGURE_ACCOUNTS_TEXT_AUTH="Enter master password to gain access:"
+CONFIGURE_ACCOUNTS_ERR_WRONG_PASS="Incorrect password!"
+CONFIGURE_ACCOUNTS_TITLE_SECURITY="Security"
+CONFIGURE_ACCOUNTS_TEXT_SECURITY_ASK="<big><b>Do you want to protect the configurator with a master password?</b></big>\n\nRecommended to prevent unauthorized access to your accounts."
+CONFIGURE_ACCOUNTS_TITLE_MANAGE_MASTER="Manage Master Password"
+CONFIGURE_ACCOUNTS_OPT_CHANGE_MASTER="Change master password"
+CONFIGURE_ACCOUNTS_OPT_REMOVE_MASTER="Remove master password (disable protection)"
+CONFIGURE_ACCOUNTS_MSG_REMOVE_MASTER="Are you sure you want to remove the master password?\n\nThe program will launch without authentication."
+CONFIGURE_ACCOUNTS_INFO_MASTER_REMOVED="Master password has been removed."
+
+# Main Menu
+CONFIGURE_ACCOUNTS_TITLE_MAIN="E-mail Account Configurator (Encrypted)"
+CONFIGURE_ACCOUNTS_TEXT_MAIN="Select account, add new one or manage list.\nPasswords are stored in encrypted form."
+CONFIGURE_ACCOUNTS_COL_ID="ID"
+CONFIGURE_ACCOUNTS_COL_DESC="Description"
+CONFIGURE_ACCOUNTS_LBL_ACCOUNT="Account"
+CONFIGURE_ACCOUNTS_OPT_ADD="➕ Add new account"
+CONFIGURE_ACCOUNTS_OPT_IMPORT="📂 Import (*.json.enc / *.json)"
+CONFIGURE_ACCOUNTS_OPT_EXPORT="📤 Export (Backup)"
+CONFIGURE_ACCOUNTS_OPT_SECURITY="🔐 Manage master password"
+CONFIGURE_ACCOUNTS_OPT_DELETE_ALL="🗑️ Delete all accounts"
+CONFIGURE_ACCOUNTS_EXIT="❌ Exit"
+
+# Exit Logic
+CONFIGURE_ACCOUNTS_MSG_START_SCRIPT="Do you want to run script <b>3.Start_and_Restart.sh</b> to start the widget?"
+CONFIGURE_ACCOUNTS_INFO_SCRIPT_STARTED="Startup script launched."
+CONFIGURE_ACCOUNTS_ERR_SCRIPT_FAIL="Could not find or run script:\n%s"
+
+# Delete All
+CONFIGURE_ACCOUNTS_TITLE_DESTRUCTIVE="WARNING: Destructive Operation"
+CONFIGURE_ACCOUNTS_TEXT_DELETE_ALL="<span size='large' weight='bold' color='red'>Are you sure you want to delete ALL accounts?</span>\n\nThis will clear:\n1. accounts.json file\n2. Arrays in e-mail.lua file\n\nThis operation cannot be undone (unless you have a backup)."
+CONFIGURE_ACCOUNTS_INFO_ALL_CLEARED="All accounts have been deleted.\nConfiguration is clean."
+
+# Export
+CONFIGURE_ACCOUNTS_TITLE_EXPORT_FILE="Export accounts to file"
+CONFIGURE_ACCOUNTS_TITLE_EXPORT_PASS="Secure export file"
+CONFIGURE_ACCOUNTS_TEXT_EXPORT_PASS="Enter password to encrypt the export file.\nIt will be needed when importing on another computer."
+CONFIGURE_ACCOUNTS_ERR_PASS_MISMATCH_EMPTY="Passwords empty or do not match."
+CONFIGURE_ACCOUNTS_TITLE_EXPORTING="Exporting"
+CONFIGURE_ACCOUNTS_TEXT_PROCESSING="Processing account"
+CONFIGURE_ACCOUNTS_TEXT_ENCRYPTING="Encrypting output file..."
+CONFIGURE_ACCOUNTS_INFO_EXPORT_OK="Export successful.\nFile: %s"
+CONFIGURE_ACCOUNTS_ERR_EXPORT_FAIL="Export failed."
+
+# Import
+CONFIGURE_ACCOUNTS_TITLE_IMPORT_FILE="Select file to import"
+CONFIGURE_ACCOUNTS_TITLE_ENCRYPTED="File encrypted"
+CONFIGURE_ACCOUNTS_TEXT_DECRYPT_PASS="Enter password to decrypt import file:"
+CONFIGURE_ACCOUNTS_ERR_DECRYPT_FAIL="Failed to decrypt file.\nIncorrect password or corrupted file."
+CONFIGURE_ACCOUNTS_ERR_JSON_INVALID="Imported content is not a valid JSON format."
+CONFIGURE_ACCOUNTS_MSG_IMPORT_CONFIRM="<big>Password correct. Do you want to import accounts?</big>\n\nPasswords will be automatically re-encrypted with this computer's key."
+CONFIGURE_ACCOUNTS_TITLE_IMPORT_COLOR="Import: Select color for account '%s'"
+CONFIGURE_ACCOUNTS_INFO_IMPORT_STATS="Operation finished.\n\nImported: %s\nSkipped (duplicates): %s"
+
+# Add / Edit Account
+CONFIGURE_ACCOUNTS_TITLE_ADD="Add new account"
+CONFIGURE_ACCOUNTS_TITLE_EDIT="Edit account: %s"
+CONFIGURE_ACCOUNTS_LBL_NAME_KEY="Name (key, no spaces):"
+CONFIGURE_ACCOUNTS_LBL_HOST="IMAP Host:"
+CONFIGURE_ACCOUNTS_LBL_PORT="Port:"
+CONFIGURE_ACCOUNTS_LBL_ENC="Encryption:"
+CONFIGURE_ACCOUNTS_LBL_LOGIN="Login (e-mail):"
+CONFIGURE_ACCOUNTS_ERR_FIELDS_EMPTY="Error: 'Name' and 'Login' fields cannot be empty."
+CONFIGURE_ACCOUNTS_ERR_PORT_NAN="Error: Port must be a number."
+CONFIGURE_ACCOUNTS_TITLE_PICK_COLOR="Select account color"
+CONFIGURE_ACCOUNTS_TITLE_CHANGE_COLOR="Change account color (cancel = keep old)"
+CONFIGURE_ACCOUNTS_ERR_MOD_COLORS="Error modifying ACCOUNT_COLORS."
+CONFIGURE_ACCOUNTS_ERR_MOD_NAMES="Error modifying ACCOUNT_NAMES."
+CONFIGURE_ACCOUNTS_ERR_MOD_KEYS="Error modifying ACCOUNT_KEYS."
+CONFIGURE_ACCOUNTS_INFO_ACC_ADDED="Account '%s' added (color: %s)."
+CONFIGURE_ACCOUNTS_INFO_ACC_SAVED="Data for account '%s' saved."
+
+# Account Manage Sub-menu
+CONFIGURE_ACCOUNTS_TITLE_MANAGE="Manage account: %s"
+CONFIGURE_ACCOUNTS_TEXT_ACTION="Choose action:"
+CONFIGURE_ACCOUNTS_OPT_EDIT_ACC="Edit"
+CONFIGURE_ACCOUNTS_OPT_DELETE_ACC="Delete"
+CONFIGURE_ACCOUNTS_OPT_MOVE_ACC="Move"
+CONFIGURE_ACCOUNTS_MSG_DELETE_CONFIRM="Are you sure you want to delete account '%s'?\n\nThis operation cannot be undone!"
+CONFIGURE_ACCOUNTS_INFO_ACC_DELETED="Account '%s' deleted."
+CONFIGURE_ACCOUNTS_TITLE_MOVE="Move account: %s"
+CONFIGURE_ACCOUNTS_COL_DIRECTION="Direction"
+CONFIGURE_ACCOUNTS_OPT_UP="Up"
+CONFIGURE_ACCOUNTS_OPT_DOWN="Down"
+CONFIGURE_ACCOUNTS_WARN_TOP="This account is already at the top; cannot move up."
+CONFIGURE_ACCOUNTS_WARN_BOTTOM="This account is already at the bottom; cannot move down."
+CONFIGURE_ACCOUNTS_INFO_MOVED="Account '%s' moved %s."
+
+# ==============================================================================
+# SCRIPT: Start_and_Restart.sh (3.Start_and_Restart.sh)
+# ==============================================================================
+
+# Debug Mode
+START_RESTART_DEBUG_MSG="\033[1;33mDebug mode enabled. RAM logging and .health file generation by Python will be active.\033[0m"
+START_RESTART_VENV_ACTIVATION="Activating venv environment..."
+
+# Window Titles
+START_RESTART_TITLE_MODE_SELECT="Select Mail Backend Mode"
+START_RESTART_TITLE_POLLING_INTERVAL="Polling – check interval (seconds)?"
+START_RESTART_TITLE_ALREADY_RUNNING="Zupix-Py2Lua-Mail-conky – already running!"
+START_RESTART_TITLE_RESTART_CONFIRM="Restart Conky Mail"
+START_RESTART_TITLE_VENV_FIX="Auto-repair venv"
+
+# Mode Selection (IDLE/POLLING)
+START_RESTART_BTN_IDLE="IDLE (listening mode)"
+START_RESTART_BTN_POLLING="POLLING (cyclic check)"
+START_RESTART_TEXT_MODE_DESC="<big><b>How should the mail backend check for new emails?</b></big>\n\n<b><span foreground='green'>IDLE</span> Mode:</b>\n• Connects to IMAP server, listening for server notifications (IDLE interrupts).\n• Checks changes and generates new cache upon notification.\n• <b>Lower RAM/CPU usage</b>, recommended if you want fewer server requests and don't need instant notifications.\n\n<b><span foreground='red'>POLLING</span> Mode:</b>\n• Every X seconds (you will set it in a moment) it downloads all unread messages from mail server and generates new cache.\n• <b>Instant notifications in conky window, in every cycle (every X seconds)</b>.\n• Good if you need immediate reaction, but not recommended if your mail provider dislikes frequent requests.\n\n<b>Select mode:</b>\n<b>IDLE</b> – <i>listens for server changes</i>  |  <b>POLLING</b> – <i>checks manually every few seconds</i>"
+START_RESTART_TEXT_POLLING_ENTRY="Enter number of seconds for update interval (e.g. 5, 10, 30):"
+START_RESTART_ERR_INVALID_INT="❗ Value \"%s\" is not an integer greater than zero! Script aborted."
+START_RESTART_INFO_NO_MODE="❗ No mode selected. Script aborted."
+
+# Notifications (Notify-send)
+START_RESTART_NOTIFY_IDLE_SET="⚡ IDLE mode set"
+START_RESTART_NOTIFY_IDLE_DESC="Backend will run in IMAP IDLE mode"
+START_RESTART_NOTIFY_POLLING_SET="⏳ POLLING mode set"
+START_RESTART_NOTIFY_POLLING_DESC="Backend will check emails every %s seconds, cache write every %s seconds"
+START_RESTART_NOTIFY_ALREADY_RUNNING="ℹ️ Already running"
+START_RESTART_NOTIFY_ALREADY_DESC="Script is already running in background. Second instance won't start."
+START_RESTART_NOTIFY_SHUTDOWN_OK="✅ Stopped"
+START_RESTART_NOTIFY_SHUTDOWN_DESC="Processes terminated successfully."
+START_RESTART_NOTIFY_RESTARTING="🔁 Restarting!"
+START_RESTART_NOTIFY_RESTART_DESC="Relaunching..."
+START_RESTART_NOTIFY_STOPPED="🛑 Finished"
+START_RESTART_NOTIFY_STOPPED_DESC="Not restarting. Everything closed."
+START_RESTART_NOTIFY_MISSING_FILE="❗ Missing file"
+START_RESTART_NOTIFY_MISSING_DESC="File %s not found. Script terminating."
+START_RESTART_NOTIFY_RAM_LIMIT="⚠️ Restart Conky"
+START_RESTART_NOTIFY_RAM_DESC="conkyrc_zupix PID %s exceeded %s MB RAM. Restarting..."
+START_RESTART_NOTIFY_VENV_ACTIVATE="🐍 Virtualenv"
+START_RESTART_NOTIFY_VENV_DESC="Activating Python venv environment..."
+START_RESTART_NOTIFY_PYTHON_START="▶️ Starting Python"
+START_RESTART_NOTIFY_PYTHON_DESC="Running script %s"
+START_RESTART_NOTIFY_WAITING="⏳ Waiting"
+START_RESTART_NOTIFY_WAITING_DESC="Waiting for %s creation by Python..."
+START_RESTART_NOTIFY_WAITING_LONG="⏳ Still waiting"
+START_RESTART_NOTIFY_WAITING_LONG_DESC="This may take longer if downloading many emails..."
+START_RESTART_NOTIFY_SUCCESS="✅ Python generating cache"
+START_RESTART_NOTIFY_SUCCESS_DESC="Script ZupixPyMail.py created %s in %ssec."
+START_RESTART_NOTIFY_FAIL="❌ Startup Error!"
+START_RESTART_NOTIFY_FAIL_DESC="%s not created – script not running or crashed."
+
+# Process Management
+START_RESTART_TEXT_ALREADY_RUNNING="<big><big><b>Zupix_Py2Lua_Mail_conky</b> is already running in background!</big></big>\n\nDo you want to stop the widget and close ALL associated processes?\n\nThis will stop <b>conky</b> process, <b>ZupixPyMail.py</b> script and remove cache - <b>/dev/shm/Zupix-Py2Lua-Mail-conky/mail_cache.json</b> + other temp files.)"
+START_RESTART_TEXT_RESTART_ASK="Do you want to restart script <b>3.Start_and_Restart.sh?</b>"
+START_RESTART_ERR_MISSING_FILE_CONSOLE="File %s not found. Terminating."
+
+# VENV Repair
+START_RESTART_TEXT_VENV_FIX="Project folder moved detected.\nAdjusting Python environment..."
+START_RESTART_TEXT_VENV_STEP1="Location change detected. Removing old environment..."
+START_RESTART_TEXT_VENV_STEP2="Creating new Python venv..."
+START_RESTART_TEXT_VENV_STEP3="Installing required libraries..."
+START_RESTART_TEXT_VENV_OFFLINE="OFFLINE mode: Installing from lib folder..."
+START_RESTART_TEXT_VENV_ONLINE="ONLINE mode: Downloading libraries from network..."
+START_RESTART_TEXT_VENV_DONE="Repair finished successfully!"
+START_RESTART_ERR_VENV_FAIL="❌ <b>Environment repair error!</b>\n\nFailed to install libraries or create venv.\nMake sure you have <tt>python3-venv</tt> package and <tt>lib</tt> folder (if offline)."
+START_RESTART_NOTIFY_VENV_READY="✅ Ready"
+START_RESTART_NOTIFY_VENV_READY_DESC="Python environment updated."
+
+# Startup Errors
+START_RESTART_ERR_STARTUP_FAIL="❌ Startup Error!\n\nCache file not created within required time.\nPython backend probably crashed.\n\nCheck logs in terminal where this script was launched to see the reason."
+
+# ==============================================================================
+# SCRIPT: Mark_n_messages_as_unread.sh
+# ==============================================================================
+# Dialogs and interaction
+MARK_N_TITLE_ENTRY="Mark as unread"
+MARK_N_TEXT_ENTRY="How many recent emails do you want to mark as unread on EACH account?\n(Enter an integer > 0, e.g., 5, 50, 100)"
+MARK_N_ERR_INVALID="Invalid value: Script aborted."
+MARK_N_PROGRESS_TITLE="Marking emails as unread"
+MARK_N_PROGRESS_TITLE_TEXT="Marking messages. Please wait..."
+MARK_N_PROGRESS_TEXT="Marking <b>%s</b> latest messages as unread.\n<b>Please wait...</b>"
+
+# Summary
+MARK_N_SUMMARY_TITLE="Marking emails - summary"
+MARK_N_SUMMARY_DONE="Finished!\n\n"
+MARK_N_SUMMARY_OK_HEADER="<b>Successes:</b>"
+MARK_N_SUMMARY_ERR_HEADER="<b><span foreground='red'>Errors:</span></b>"
+MARK_N_SUMMARY_INFO_HEADER="<b>Information:</b>"
+MARK_N_UNREAD_MSG_CONFIRM="Select accounts to mark messages as unread:"
+MARK_N_ACCOUNT_ENTRY="How many messages to mark for account:"
+
+
+# Notifications
+MARK_N_NOTIFY_APP="Zupix-Py2Lua-Mail-conky"
+MARK_N_NOTIFY_ERR="Zupix-Py2Lua-Mail-conky – error"
+MARK_N_NOTIFY_INFO="Zupix-Py2Lua-Mail-conky – information"
+
+# Backend Messages (Python) - passed via ENV
+MARK_N_PY_ERR_NO_FILE_ACC="[INFO]<b><span foreground='red'>Missing accounts file:</span></b> %s"
+MARK_N_PY_ERR_NO_ACCOUNTS="[INFO]<b><span foreground='red'>No accounts in accounts.json!</span></b>"
+MARK_N_PY_INFO_NO_WORK="[INFO]No work to do (empty INBOXes?)."
+MARK_N_PY_ERR_INBOX_OPEN="[ERR]%s: Cannot open INBOX in write mode."
+MARK_N_PY_ERR_FETCH_LIST="[ERR]%s: Cannot fetch mail list."
+MARK_N_PY_INFO_NO_MSGS="[INFO]%s: No messages to mark."
+MARK_N_PY_OK_MARKED="[OK]%s: Marked as unread --> %s messages."
+MARK_N_PY_ERR_SERVER="[ERR]%s: Server error during mass marking."
+MARK_N_PY_EXC_IMAP="[ERR]%s: IMAP Exception: %s"
+MARK_N_PY_ERR_GENERIC="[ERR]%s: Issue: %s"
+
+# ==============================================================================
+# SCRIPT: Mark_all_messages_as_read.sh
+# ==============================================================================
+
+# Dialogs
+MARK_ALL_TITLE_PROGRESS="Marking emails"
+MARK_ALL_TEXT_PROGRESS="Marking all emails as read.\nPlease wait..."
+MARK_ALL_TITLE_SUMMARY="Marking messages - summary"
+MARK_ALL_READ_MSG_CONFIRM="Select accounts to mark messages as read:"
+
+
+# Summary and headers
+MARK_ALL_TEXT_DONE="<big>Finished!</big>\n\n"
+MARK_ALL_HEADER_SUMMARY="<b>Summary:</b>"
+MARK_ALL_HEADER_ERRORS="<b><span foreground='red'>Errors:</span></b>"
+
+# Notifications
+MARK_ALL_NOTIFY_APP="Zupix-Py2Lua-Mail-conky"
+MARK_ALL_NOTIFY_ERR_TITLE="Zupix-Py2Lua-Mail-conky – error"
+MARK_ALL_NOTIFY_INFO_TITLE="Zupix-Py2Lua-Mail-conky – information"
+
+# Backend Python (Messages)
+MARK_ALL_PY_ERR_NO_FILE="[INFO]<b><span foreground='red'>Missing accounts file:</span></b> %s"
+MARK_ALL_PY_ERR_NO_ACCOUNTS="[INFO]<b><span foreground='red'>No accounts in accounts.json!</span></b>"
+MARK_ALL_PY_ERR_INBOX="[ERR]%s: Cannot open INBOX in write mode."
+MARK_ALL_PY_ERR_SEARCH="[ERR]%s: Cannot fetch message list."
+MARK_ALL_PY_INFO_NONE="[INFO]%s: No unread messages."
+MARK_ALL_PY_OK_MARKED="[OK]%s: Marked as read --> %s messages."
+MARK_ALL_PY_ERR_STORE="[ERR]%s: Server error during mass marking."
+MARK_ALL_PY_ERR_STORE_EXC="[ERR]%s: Error saving flags: %s"
+MARK_ALL_PY_ERR_CRITICAL="[ERR]%s: Critical issue: %s"
+
+# ==============================================================================
+# SHARED HELPER SCRIPTS (Decryption)
+# ==============================================================================
+HELPER_TITLE_AUTH="Authorization Required"
+HELPER_TEXT_AUTH="Encrypted accounts detected.\nEnter <b>Master Password</b> to unlock:"
+HELPER_ERR_DECRYPT="[ERR]Decryption failed for account %s. Wrong master password?"
+HELPER_ERR_CANCEL="Cancelled. Password is required to proceed."
+HELPER_ERR_AUTH_FAIL="Authorization failed! Invalid Master Password."  
+
+# ==============================================================================
+# SCRIPT: Change_layout_and_scaling.sh
+# ==============================================================================
+
+# ASCII Art Preview (Headers)
+LAYOUT_ASCII_TITLE_4K="4K LAYOUTS (Original, Large)"
+LAYOUT_ASCII_TITLE_FULLHD="FullHD LAYOUTS (Scaled Down)"
+LAYOUT_ASCII_DESC_FULLHD="(Layouts are visually identical but have smaller\ndimensions and fonts defined in Lua code)"
+
+# Zenity - ASCII Preview
+LAYOUT_TITLE_PREVIEW="Preview of all mail layouts (ASCII)"
+
+# Zenity - Step 1 (Select Layout)
+LAYOUT_TITLE_STEP1="STEP 1/2: Select mail layout"
+LAYOUT_COL_CODE="Layout Code"
+LAYOUT_COL_DESC="Description (automatically selects dimensions set)"
+LAYOUT_GRP_4K="──────────── 4K LAYOUTS (Large) ────────────"
+LAYOUT_GRP_FULLHD="──────────── FullHD LAYOUTS (Smaller) ────────────"
+LAYOUT_GRP_REVERSE="────── (REVERSE) ──────"
+
+# Layout Descriptions
+LAYOUT_DESC_UP_MID="Top, Middle."
+LAYOUT_DESC_DOWN_MID="Bottom, Middle."
+LAYOUT_DESC_DOWN_RIGHT="Bottom, Right corner."
+LAYOUT_DESC_UP_RIGHT="Top, Right corner."
+LAYOUT_DESC_DOWN_LEFT="Bottom, Left corner."
+LAYOUT_DESC_UP_LEFT="Top, Left corner."
+LAYOUT_DESC_DOWN_RIGHT_REV="Bottom, Right corner (Mirrored)."
+LAYOUT_DESC_UP_RIGHT_REV="Top, Right corner (Mirrored)."
+
+# Zenity - Step 2 (Parameters Form)
+LAYOUT_TITLE_STEP2="STEP 2/2: Parameters"
+LAYOUT_MODE_4K="4K (Large)"
+LAYOUT_MODE_FULLHD="FullHD (Smaller)"
+LAYOUT_TEXT_CURRENT="Current: Mails=[%s], Scale=[%s%%], Width=[%spx]"
+LAYOUT_LBL_MAILS_COUNT="Number of emails (recommended: 1-40)"
+LAYOUT_LBL_SCALE="Widget scale in % (e.g., 100)"
+LAYOUT_LBL_WIDTH="Mail block width in px"
+
+# Errors and Notifications
+LAYOUT_NOTIFY_CLOSED="Configurator closed."
+LAYOUT_NOTIFY_SEPARATOR="Separator selected - please choose a valid layout."
+LAYOUT_NOTIFY_CANCEL="Configuration cancelled."
+LAYOUT_ERR_NUMBERS="Error! All values must be integers.\nPlease try again."
+LAYOUT_ERR_LOCK="Another instance is running!"
+
+# Summary
+LAYOUT_INFO_DONE="Done!\n\nLayout: %s\nMails count: %s\nMail width: %spx\nScale: %s%%\nNew window dimensions: %sx%s\n\nConky has been restarted."
+
+# ==============================================================================
+# FILENAMES MAPPING (Symlinks in Root)
+# ==============================================================================
+FN_1_INSTALL="1.Install_dependencies.sh"
+FN_2_CONFIG="2.Configure_accounts.sh"
+FN_3_START="3.Start_and_Restart.sh"
+FN_CHANGE_ACC="Change_displayed_account.sh"
+FN_CHANGE_LAYOUT="Change_layout_and_scaling.sh"
+FN_CONFIG_AVATARS="Configure_avatars.sh"
+FN_MARK_ALL_READ="Mark_all_messages_as_read.sh"
+FN_MARK_N_UNREAD="Mark_n_messages_as_unread.sh"
+FN_SCROLL_DOWN="Scroll_mail_list_down.sh"
+FN_SCROLL_UP="Scroll_mail_list_up.sh"

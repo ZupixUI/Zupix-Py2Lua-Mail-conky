@@ -1,0 +1,596 @@
+# --- Keys and Selection (Yes/No) ---
+CLI_YES_NO="Y/N"
+CLI_YES="Y"
+CLI_NO="N"
+
+# ==============================================================================
+# SCRIPT: 1.CLI_Install_dependencies.sh
+# ==============================================================================
+
+# Terminal detection
+CLI_INSTALL_DEPENDENCIES_ERR_NO_TERM="Terminal emulator from the list not found. To run this script, launch it manually in your terminal."
+CLI_INSTALL_DEPENDENCIES_PROMPT_TERM_EXIT="Script finished. Press Enter to close this window..."
+CLI_INSTALL_DEPENDENCIES_ERR_NO_SUPPORTED_TERM="No supported terminal emulator found!"
+CLI_INSTALL_DEPENDENCIES_MSG_OP_DONE="--- Operation finished. Press Enter to close this terminal window ---"
+
+# Shell compatibility
+CLI_INSTALL_DEPENDENCIES_INFO_SHELL="🔄 Switching shell to bash for compatibility..."
+CLI_INSTALL_DEPENDENCIES_ERR_TRAP="Unexpected error in script in section: $BASH_COMMAND"
+
+# Distro detection
+CLI_INSTALL_DEPENDENCIES_INFO_DETECT="Detecting system distribution..."
+CLI_INSTALL_DEPENDENCIES_WARN_NO_LSB="Missing 'lsb_release' command. You will have to select distribution manually."
+CLI_INSTALL_DEPENDENCIES_INFO_SELECT_DISTRO="Please select your distribution from the list below:"
+CLI_INSTALL_DEPENDENCIES_WARN_DEBIAN="Selected 'Other (Debian-based)'. Using default packages for Debian."
+CLI_INSTALL_DEPENDENCIES_WARN_ARCH="Selected 'Other (Arch-based)'. Using default packages for Arch."
+CLI_INSTALL_DEPENDENCIES_WARN_RPM="Selected 'Other (RPM-based)'. Using default packages for Fedora."
+CLI_INSTALL_DEPENDENCIES_INFO_CANCEL="Selection cancelled. Script terminating."
+CLI_INSTALL_DEPENDENCIES_ERR_INVALID_OPT="Invalid option. Enter a number from the list."
+CLI_INSTALL_DEPENDENCIES_SUCCESS_DETECT="System detected: %s (version: %s)"
+
+# Distro Menu Options
+CLI_INSTALL_DEPENDENCIES_OPT_ARCH_OTHER="Arch/Manjaro/Other"
+CLI_INSTALL_DEPENDENCIES_OPT_OTHER_DEBIAN="Other (Debian-based)"
+CLI_INSTALL_DEPENDENCIES_OPT_OTHER_ARCH="Other (Arch-based)"
+CLI_INSTALL_DEPENDENCIES_OPT_OTHER_RPM="Other (RPM-based)"
+CLI_INSTALL_DEPENDENCIES_OPT_EXIT="❌Exit"
+
+# Notify-send
+CLI_INSTALL_DEPENDENCIES_ERR_NIXOS_NOTIFY="On NixOS install notify-send manually via configuration.nix"
+CLI_INSTALL_DEPENDENCIES_GENTOO_HEADER="💜 Gentoo Linux Detected 💜"
+CLI_INSTALL_DEPENDENCIES_WARN_MISSING_NOTIFY_LIB="Missing 'notify-send' tool (package: x11-libs/libnotify)."
+CLI_INSTALL_DEPENDENCIES_MSG_GENTOO_INSTALL="Please install it manually in another window:"
+CLI_INSTALL_DEPENDENCIES_PROMPT_CHECK_AGAIN="Press Enter after installation to check again..."
+CLI_INSTALL_DEPENDENCIES_SUCCESS_NOTIFY="notify-send detected! Continuing."
+CLI_INSTALL_DEPENDENCIES_ERR_STILL_NO_NOTIFY="notify-send still not detected. Script terminating."
+CLI_INSTALL_DEPENDENCIES_WARN_MISSING_NOTIFY_PKG="Missing 'notify-send' tool (package: %s)."
+CLI_INSTALL_DEPENDENCIES_CHOICE_INSTALL_NOW="Do you want to install it now?"
+CLI_INSTALL_DEPENDENCIES_INFO_INSTALL_NEW_WINDOW="Installation of %s started in a new terminal window."
+CLI_INSTALL_DEPENDENCIES_INFO_PASSWORD="If asked for password, enter it in that window."
+CLI_INSTALL_DEPENDENCIES_INFO_RESTART="After installation finishes, run this script again."
+CLI_INSTALL_DEPENDENCIES_ERR_NOTIFY_REQ="Installation of 'notify-send' is required. Cancelled."
+
+# Gentoo / Unknown PM Manual Instructions
+CLI_INSTALL_DEPENDENCIES_MANUAL_CONKY="required USE flags: %s, %s, %s"
+CLI_INSTALL_DEPENDENCIES_MANUAL_OR_OTHER="(or others, e.g. Google Fonts)"
+CLI_INSTALL_DEPENDENCIES_MANUAL_PYTHON="usually built-in with %s"
+CLI_INSTALL_DEPENDENCIES_MANUAL_CONKY_CAIRO="(with cairo support)"
+CLI_INSTALL_DEPENDENCIES_MANUAL_FONTS="(or similar color font)"
+CLI_INSTALL_DEPENDENCIES_MANUAL_VENV="(depending on distro)"
+
+# Package Installation Loop
+CLI_INSTALL_DEPENDENCIES_GENTOO_EXCEPTION="💜 Special exception for Gentoo :) 💜"
+CLI_INSTALL_DEPENDENCIES_GENTOO_NO_AUTO="Script has no automatic installation rules (emerge) for this system."
+CLI_INSTALL_DEPENDENCIES_ERR_UNKNOWN_PM="❌ Package manager not recognized! ❌"
+CLI_INSTALL_DEPENDENCIES_NO_AUTO_RULES="Script has no automatic installation rules for this system."
+CLI_INSTALL_DEPENDENCIES_MSG_MANUAL_INSTALL="You must manually install the following packages:"
+CLI_INSTALL_DEPENDENCIES_INFO_ACTION="Select action:"
+CLI_INSTALL_DEPENDENCIES_OPT_SKIP_CHECK="[P] - Skip dependency check (Don't check packages, proceed to Python venv)."
+CLI_INSTALL_DEPENDENCIES_OPT_CANCEL="[A] - Cancel and exit script."
+CLI_INSTALL_DEPENDENCIES_PROMPT_CHOICE="Your choice?"
+CLI_INSTALL_DEPENDENCIES_WARN_HEADER="⚠️  WARNING! ⚠️"
+CLI_INSTALL_DEPENDENCIES_WARN_SKIP="Skipping this step involves risk of widget errors if Conky or Lua are missing."
+CLI_INSTALL_DEPENDENCIES_CHOICE_CONFIRM_CONTINUE="Are you sure you want to continue?"
+CLI_INSTALL_DEPENDENCIES_WARN_SKIPPED="Skipped system package checking."
+CLI_INSTALL_DEPENDENCIES_INFO_CANCELLED="Installation cancelled by user."
+CLI_INSTALL_DEPENDENCIES_SUCCESS_ALL_INSTALLED="All required packages are already installed!"
+CLI_INSTALL_DEPENDENCIES_ERR_STILL_MISSING="🔧 System is still missing the following packages:"
+CLI_INSTALL_DEPENDENCIES_WARN_MISSING="🔧 System is missing the following packages:"
+CLI_INSTALL_DEPENDENCIES_OPT_AUTO="[I] - Start automatic installation in a new terminal."
+CLI_INSTALL_DEPENDENCIES_OPT_SAFE="[T] - Safe mode (display command to paste manually)."
+CLI_INSTALL_DEPENDENCIES_OPT_CHECK="[S] - Check again (if you installed packages in another window)."
+CLI_INSTALL_DEPENDENCIES_OPT_SKIP="[P] - Skip checking (Dangerous! Use only if you know what you are doing)."
+CLI_INSTALL_DEPENDENCIES_INFO_AUTO_START="Starting installation in a new terminal window..."
+CLI_INSTALL_DEPENDENCIES_WARN_RETURN="After installation finishes in the new window, return here and select 'Check again'."
+CLI_INSTALL_DEPENDENCIES_INFO_SAFE_MODE="SAFE MODE: Run the following command in your terminal to install missing packages:"
+CLI_INSTALL_DEPENDENCIES_INFO_CHECKING="Checking dependencies again..."
+CLI_INSTALL_DEPENDENCIES_WARN_SKIP_DESC="Skipping this step means script won't verify if required packages are installed."
+CLI_INSTALL_DEPENDENCIES_WARN_SKIP_ERR="If they are missing, widget won't start correctly or errors will occur."
+CLI_INSTALL_DEPENDENCIES_CHOICE_CONFIRM_NO_INSTALL="Are you sure you want to continue without installation?"
+CLI_INSTALL_DEPENDENCIES_WARN_SKIPPED_USER="Skipped dependency check on user request."
+CLI_INSTALL_DEPENDENCIES_INFO_CANCEL_SKIP="Skipping cancelled. Returning to action selection."
+CLI_INSTALL_DEPENDENCIES_INFO_CANCEL_REMEMBER="Installation cancelled by user. Remember to install missing packages."
+
+# Conky Lua Check
+CLI_INSTALL_DEPENDENCIES_INFO_CHECK_LUA="Checking Lua support in Conky..."
+CLI_INSTALL_DEPENDENCIES_WARN_NO_LUA="Conky installed in system does NOT support Lua. Mail widget won't work."
+CLI_INSTALL_DEPENDENCIES_WARN_NO_LUA_V="'conky -v' does not return Lua support. Mail widget won't work."
+CLI_INSTALL_DEPENDENCIES_INFO_LUA_UNKNOWN="Conky has Lua support, but runtime version could not be determined. Available Lua commands: %s. Widget will likely work."
+CLI_INSTALL_DEPENDENCIES_SUCCESS_LUA_COMPAT="Compatibility: Conky uses Lua %s (runtime). Lua commands available in system: %s."
+CLI_INSTALL_DEPENDENCIES_SUCCESS_LUA_ONLY="Conky was compiled with Lua library %s (runtime)."
+CLI_INSTALL_DEPENDENCIES_INFO_LUA_PATH="Conky always uses its own library, regardless of what Lua commands are in PATH."
+
+# dkjson
+CLI_INSTALL_DEPENDENCIES_INFO_DL_DKJSON="Downloading dkjson.lua..."
+CLI_INSTALL_DEPENDENCIES_ERR_NO_NET="No internet connection or raw.githubusercontent.com is unavailable."
+CLI_INSTALL_DEPENDENCIES_ERR_MKDIR="Cannot create directory: %s"
+CLI_INSTALL_DEPENDENCIES_ERR_DL_FAIL="Error downloading dkjson.lua"
+CLI_INSTALL_DEPENDENCIES_ERR_SAVE_FAIL="Error saving dkjson.lua"
+CLI_INSTALL_DEPENDENCIES_SUCCESS_DL="File dkjson.lua downloaded to: %s"
+CLI_INSTALL_DEPENDENCIES_SUCCESS_EXISTS="File dkjson.lua already exists in: %s"
+
+# Python Venv
+CLI_INSTALL_DEPENDENCIES_INFO_PREP_VENV="Preparing Python venv environment..."
+CLI_INSTALL_DEPENDENCIES_WARN_VENV_EXISTS="Existing Python venv detected: %s"
+CLI_INSTALL_DEPENDENCIES_CHOICE_RECREATE="Do you want to delete and recreate it (recommended)?"
+CLI_INSTALL_DEPENDENCIES_INFO_DEL_VENV="Deleting old venv environment..."
+CLI_INSTALL_DEPENDENCIES_INFO_KEEP_VENV="Keeping existing venv environment."
+CLI_INSTALL_DEPENDENCIES_ERR_NO_VENV_MOD="Missing venv module in Python. On Debian/Ubuntu install: python3-venv."
+CLI_INSTALL_DEPENDENCIES_INFO_CREATE_VENV="Creating new venv environment..."
+CLI_INSTALL_DEPENDENCIES_ERR_CREATE_VENV="Error creating venv!"
+CLI_INSTALL_DEPENDENCIES_INFO_CONFIG_PIP="Configuring pip..."
+CLI_INSTALL_DEPENDENCIES_INFO_UPDATE_PIP="Updating pip in venv (online mode)..."
+CLI_INSTALL_DEPENDENCIES_WARN_PIP_FAIL="Warning: Failed to update pip, using system version."
+CLI_INSTALL_DEPENDENCIES_INFO_INSTALL_LIBS="Installing Python libraries (imapclient, beautifulsoup4)..."
+CLI_INSTALL_DEPENDENCIES_INFO_OFFLINE="OFFLINE mode: Installing from lib folder..."
+CLI_INSTALL_DEPENDENCIES_ERR_OFFLINE="Error installing libraries from lib folder! Check if .whl files exist."
+CLI_INSTALL_DEPENDENCIES_INFO_ONLINE="ONLINE mode: Downloading from internet..."
+CLI_INSTALL_DEPENDENCIES_ERR_ONLINE="Error installing Python libraries from internet!"
+CLI_INSTALL_DEPENDENCIES_SUCCESS_VENV="Python libraries successfully installed in: %s"
+
+# OpenMandriva specific
+CLI_INSTALL_DEPENDENCIES_INFO_OM_REPO_OFF="ℹ️  Required 'Extra' repository (rolling-x86_64-extra) is disabled."
+CLI_INSTALL_DEPENDENCIES_ERR_OM_REPO_STILL_OFF="⛔  Required 'Extra' repository (rolling-x86_64-extra) is STILL disabled!"
+CLI_INSTALL_DEPENDENCIES_MSG_OM_CONKY="Package 'conky' is located in this repository. Enabling it is recommended."
+CLI_INSTALL_DEPENDENCIES_MSG_OM_ACTION="Select action:"
+CLI_INSTALL_DEPENDENCIES_OPT_OM_OPEN="[O] - Open Software Repository Selector (om-repo-picker)."
+CLI_INSTALL_DEPENDENCIES_OPT_OM_TEMP="[T] - Temporary installation (emergency, one-time repo usage)."
+CLI_INSTALL_DEPENDENCIES_OPT_OM_CHECK="[S] - Check again (if you enabled repository manually)."
+CLI_INSTALL_DEPENDENCIES_OPT_OM_CANCEL="[A] - Cancel."
+CLI_INSTALL_DEPENDENCIES_ECHO_OM_PICKER="Running om-repo-picker..."
+CLI_INSTALL_DEPENDENCIES_INFO_REFRESH="Refreshing package database..."
+CLI_INSTALL_DEPENDENCIES_WARN_OM_TEMP="Temporary installation mode selected."
+CLI_INSTALL_DEPENDENCIES_ECHO_OM_NO_CHANGE="System configuration will not be changed permanently."
+CLI_INSTALL_DEPENDENCIES_INFO_VERIFY="Verifying repositories..."
+CLI_INSTALL_DEPENDENCIES_ERR_OM_CANCEL="Installation aborted (missing Extra repository)."
+CLI_INSTALL_DEPENDENCIES_WARN_OM_ROCK="⚠️  WARNING OpenMandriva Lx (Rock/Vanadium) ⚠️"
+CLI_INSTALL_DEPENDENCIES_MSG_OM_STABLE="Stable version detected. For widget to work correctly, installer will download"
+CLI_INSTALL_DEPENDENCIES_MSG_OM_NEWER="newer version of 'conky' package (with Lua/Cairo support) using Rolling repository."
+CLI_INSTALL_DEPENDENCIES_CHOICE_OM_HYBRID="Do you agree to temporarily download package from newer system?"
+CLI_INSTALL_DEPENDENCIES_ERR_OM_NO_PERM="User did not agree to installation from Rolling repo."
+
+# Completion
+CLI_INSTALL_DEPENDENCIES_SUCCESS_DONE="Script finished installing dependencies! 🎉"
+CLI_INSTALL_DEPENDENCIES_INFO_NEXT_STEP="Next step is running script '2.CLI_Configure_accounts.sh',"
+CLI_INSTALL_DEPENDENCIES_INFO_REQUIRED="which is required for widget to work correctly."
+CLI_INSTALL_DEPENDENCIES_CHOICE_RUN_NOW="Do you want to run it now?"
+CLI_INSTALL_DEPENDENCIES_ERR_NEXT_MISSING="File '%s' not found!"
+CLI_INSTALL_DEPENDENCIES_INFO_REMEMBER="Finished. Remember to manually run script '2.CLI_Configure_accounts.sh'."
+
+# CLI_LIB (Common logs)
+CLI_LIB_LOG_PREFIX_INFO="ℹ"
+CLI_LIB_LOG_PREFIX_OK="✅"
+CLI_LIB_LOG_PREFIX_WARN="⚠️"
+CLI_LIB_LOG_PREFIX_ERR="❌"
+CLI_LIB_LOG_ERR_MSG="Script cannot continue. Closing..."
+CLI_LIB_PROMPT_CONTINUE="➥ Press Enter to continue..."
+CLI_LIB_ERR_INVALID_OPT="Invalid option. Try again."
+
+# ==============================================================================
+# SCRIPT: 2.CLI_Configure_accounts.sh
+# ==============================================================================
+# Terminal detection
+CLI_CONFIGURE_ACCOUNTS_ERR_NO_TERM="Terminal emulator not found. Launch this script manually in your terminal."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_EXIT="Script finished. Press Enter to close this window..."
+
+# Dependencies
+CLI_CONFIGURE_ACCOUNTS_ERR_MISSING_JQ="'jq' tool is not installed. Install it (e.g. sudo apt install jq)."
+CLI_CONFIGURE_ACCOUNTS_ERR_MISSING_PERL="'perl' tool is not installed. Install it."
+CLI_CONFIGURE_ACCOUNTS_ERR_MISSING_OPENSSL="'openssl' tool is not installed. Install it."
+
+# CLI Library (Prompts)
+CLI_CONFIGURE_ACCOUNTS_PROMPT_INVALID="Invalid option. Try again."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_ENTER="Press Enter..."
+
+# Master Password
+CLI_CONFIGURE_ACCOUNTS_INFO_SET_MASTER="Setting Master Password"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_NEW_PASS="New password"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_REPEAT_PASS="Repeat password"
+CLI_CONFIGURE_ACCOUNTS_WARN_EMPTY_PASS="Password cannot be empty."
+CLI_CONFIGURE_ACCOUNTS_WARN_PASS_MISMATCH="Passwords do not match."
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_MASTER_SET="Master password has been set."
+CLI_CONFIGURE_ACCOUNTS_WARN_AUTH_REQ="🔐 AUTHENTICATION REQUIRED"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_ENTER_MASTER="Enter master password"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_ACCESS="Access granted."
+CLI_CONFIGURE_ACCOUNTS_WARN_WRONG_PASS="Incorrect password!"
+CLI_CONFIGURE_ACCOUNTS_ERR_TOO_MANY_TRIES="Too many failed attempts. Closing."
+CLI_CONFIGURE_ACCOUNTS_INFO_SECURITY_CONFIG="Security Configuration"
+CLI_CONFIGURE_ACCOUNTS_CHOICE_ENABLE_SECURITY="Do you want to protect the configurator with a master password?"
+CLI_CONFIGURE_ACCOUNTS_MENU_MANAGE_MASTER="Manage Master Password:"
+CLI_CONFIGURE_ACCOUNTS_OPT_CHANGE_MASTER="Change master password"
+CLI_CONFIGURE_ACCOUNTS_OPT_REMOVE_MASTER="Remove master password (disable protection)"
+CLI_CONFIGURE_ACCOUNTS_OPT_BACK="Back"
+CLI_CONFIGURE_ACCOUNTS_CHOICE_CONFIRM_REMOVE="Are you sure you want to remove the password? The program will be unprotected."
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_MASTER_REMOVED="Master password removed."
+
+# Helper Functions
+CLI_CONFIGURE_ACCOUNTS_PROMPT_FILE_PATH="File path"
+CLI_CONFIGURE_ACCOUNTS_ERR_PERL_EXEC="Error executing Perl script."
+CLI_CONFIGURE_ACCOUNTS_INFO_PICK_COLOR="Select color for %s:"
+CLI_CONFIGURE_ACCOUNTS_COLOR_WHITE="White"
+CLI_CONFIGURE_ACCOUNTS_COLOR_RED="Red"
+CLI_CONFIGURE_ACCOUNTS_COLOR_GREEN="Green"
+CLI_CONFIGURE_ACCOUNTS_COLOR_YELLOW="Yellow"
+CLI_CONFIGURE_ACCOUNTS_COLOR_BLUE="Blue"
+CLI_CONFIGURE_ACCOUNTS_COLOR_MAGENTA="Magenta"
+CLI_CONFIGURE_ACCOUNTS_COLOR_CYAN="Cyan"
+CLI_CONFIGURE_ACCOUNTS_COLOR_ORANGE="Orange"
+CLI_CONFIGURE_ACCOUNTS_COLOR_LIME="Lime"
+CLI_CONFIGURE_ACCOUNTS_COLOR_PINK="Pink"
+CLI_CONFIGURE_ACCOUNTS_INFO_COLOR_CUSTOM="Enter number from list or custom HEX code (e.g. #AABBCC)"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_COLOR_CHOICE="Your choice [1-10 or HEX]:"
+CLI_CONFIGURE_ACCOUNTS_ERR_INVALID_COLOR="Invalid choice. Enter number 1-10 or valid HEX code."
+
+# Main Menu
+CLI_CONFIGURE_ACCOUNTS_HEADER_MAIN="--- E-mail Account Configurator (CLI - Encrypted) ---"
+CLI_CONFIGURE_ACCOUNTS_INFO_EXISTING="Existing accounts:"
+CLI_CONFIGURE_ACCOUNTS_WARN_NO_ACCOUNTS="No accounts configured yet."
+CLI_CONFIGURE_ACCOUNTS_OPT_ADD_NEW="➕ Add new account"
+CLI_CONFIGURE_ACCOUNTS_OPT_ACCOUNT_FMT="Account: %s (%s)"
+CLI_CONFIGURE_ACCOUNTS_OPT_IMPORT="📂 Import (*.json.enc / *.json)"
+CLI_CONFIGURE_ACCOUNTS_OPT_EXPORT="📤 Export (Backup)"
+CLI_CONFIGURE_ACCOUNTS_OPT_SECURITY="🔐 Manage master password"
+CLI_CONFIGURE_ACCOUNTS_OPT_DELETE_ALL="🗑️ Delete all accounts"
+CLI_CONFIGURE_ACCOUNTS_OPT_EXIT="❌Exit"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_SELECT_OPT="Select option: "
+
+# Exit / Start Widget
+CLI_CONFIGURE_ACCOUNTS_CHOICE_START_WIDGET="Do you want to run script 3.START... to launch the widget?"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_STARTED="Startup script launched in background."
+CLI_CONFIGURE_ACCOUNTS_ERR_SCRIPT_MISSING="Cannot find or run script: %s"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_CONFIG_DONE="Configuration finished."
+
+# Add Account
+CLI_CONFIGURE_ACCOUNTS_INFO_ADDING="Adding new account..."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_NAME="Name (unique key, no spaces)"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_HOST="IMAP Host"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_PORT="Port"
+CLI_CONFIGURE_ACCOUNTS_INFO_ENC_SELECT="Select encryption:"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_LOGIN="Login (e-mail address)"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_APP_PASS="App password"
+CLI_CONFIGURE_ACCOUNTS_WARN_REQ_FIELDS="Name and Login are required. Cancelled."
+CLI_CONFIGURE_ACCOUNTS_WARN_PORT_NUM="Port must be a number. Cancelled."
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_ADDED="Account '%s' added (password encrypted)."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_RETURN_MENU="Press Enter to return to menu..."
+
+# Import
+CLI_CONFIGURE_ACCOUNTS_INFO_IMPORT_PATH="Enter path to file (.json or .json.enc)."
+CLI_CONFIGURE_ACCOUNTS_WARN_CANCELLED="Cancelled."
+CLI_CONFIGURE_ACCOUNTS_WARN_FILE_NOT_FOUND="File does not exist: %s"
+CLI_CONFIGURE_ACCOUNTS_WARN_ENCRYPTED_BACKUP="Encrypted backup detected."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_DECRYPT_PASS="Enter transport password"
+CLI_CONFIGURE_ACCOUNTS_WARN_DECRYPT_FAIL="Decryption error (wrong password?)"
+CLI_CONFIGURE_ACCOUNTS_WARN_INVALID_JSON="Content is not valid JSON."
+CLI_CONFIGURE_ACCOUNTS_INFO_VALID_FILE="File valid. Accounts with existing names will be skipped."
+CLI_CONFIGURE_ACCOUNTS_CHOICE_IMPORT="Import?"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_IMPORT_STATS="Finished. Imported: %s, Skipped: %s"
+
+# Export
+CLI_CONFIGURE_ACCOUNTS_INFO_EXPORT_SECURE="Secure export (passwords will be encrypted with your password)."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_FILENAME="Output filename"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_SET_ENC_PASS="Set file encryption password"
+CLI_CONFIGURE_ACCOUNTS_WARN_PASS_EMPTY_DIFF="Passwords empty or different."
+CLI_CONFIGURE_ACCOUNTS_INFO_PROCESSING="Processing..."
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_EXPORTED="Saved to file: %s"
+
+# Delete All
+CLI_CONFIGURE_ACCOUNTS_WARN_DESTRUCTIVE="WARNING: This is a destructive operation!"
+CLI_CONFIGURE_ACCOUNTS_WARN_WIPE_INFO="accounts.json and arrays in e-mail.lua will be cleared."
+CLI_CONFIGURE_ACCOUNTS_CHOICE_CONFIRM_WIPE="Are you sure you want to delete ALL accounts?"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_WIPED="All accounts deleted. Configuration is clean."
+CLI_CONFIGURE_ACCOUNTS_INFO_WIPE_CANCEL="Operation cancelled."
+
+# Manage Account Sub-menu
+CLI_CONFIGURE_ACCOUNTS_INFO_MANAGING="Managing account: %s"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_ACTION="Select action for '%s': "
+CLI_CONFIGURE_ACCOUNTS_OPT_EDIT="Edit details"
+CLI_CONFIGURE_ACCOUNTS_OPT_DELETE="Delete account"
+CLI_CONFIGURE_ACCOUNTS_OPT_UP="Move up"
+CLI_CONFIGURE_ACCOUNTS_OPT_DOWN="Move down"
+CLI_CONFIGURE_ACCOUNTS_OPT_BACK_MENU="↩️ Back to menu"
+
+# Edit Account
+CLI_CONFIGURE_ACCOUNTS_INFO_EDITING="Editing account '%s'. Press Enter to keep old value."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_NEW_PASS_OPT="New password (empty = no change)"
+CLI_CONFIGURE_ACCOUNTS_CHOICE_NEW_COLOR="Do you want to pick a new color?"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_UPDATED="Data for account '%s' updated."
+
+# Delete Account
+CLI_CONFIGURE_ACCOUNTS_CHOICE_CONFIRM_DELETE="Are you sure you want to delete account '%s'?"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_DELETED="Account '%s' deleted."
+CLI_CONFIGURE_ACCOUNTS_INFO_DELETE_CANCEL="Deletion cancelled."
+
+# Move Account
+CLI_CONFIGURE_ACCOUNTS_WARN_ALREADY_TOP="Account is already at the top."
+CLI_CONFIGURE_ACCOUNTS_WARN_ALREADY_BOTTOM="Account is already at the bottom."
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_MOVED="Moved account '%s'."
+
+# ==============================================================================
+# SCRIPT: 3.CLI_START_RESTART_scripts_and_conky.sh
+# ==============================================================================
+
+# --- SECTION 1: TERMINAL DETECTION & GENERAL ERRORS ---
+CLI_START_RESTART_TERM_FINISHED="Main process finished. Press Enter to close this window..."
+CLI_START_RESTART_ERR_PROJECT_DIR="Error: Cannot switch to project directory: %s"
+CLI_START_RESTART_ERR_CANNOT_CONTINUE="The script cannot continue."
+CLI_START_RESTART_PRESS_ENTER="Press Enter to exit..."
+CLI_START_RESTART_INVALID_OPTION="Invalid option. Try again."
+CLI_START_RESTART_DEBUG_MODE="Debug mode enabled. RAM logging and Python .health file generation will be active."
+
+# --- SECTION 2: MODE SELECTION (IDLE vs POLLING) ---
+CLI_START_RESTART_MODE_TITLE="Select mail backend operation mode:"
+CLI_START_RESTART_MODE_IDLE_TITLE="IDLE Mode:"
+CLI_START_RESTART_MODE_IDLE_DESC_1="• Listens for server notifications (lower resource usage)."
+CLI_START_RESTART_MODE_IDLE_DESC_2="• Recommended if you do not require instant notifications."
+CLI_START_RESTART_MODE_POLLING_TITLE="POLLING Mode:"
+CLI_START_RESTART_MODE_POLLING_DESC_1="• Actively polls the server for new emails every few seconds."
+CLI_START_RESTART_MODE_POLLING_DESC_2="• Ensures instant notifications but generates more traffic."
+CLI_START_RESTART_MODE_SELECT_PROMPT="Your choice: "
+CLI_START_RESTART_OPTION_IDLE="IDLE (listening, recommended)"
+CLI_START_RESTART_OPTION_POLLING="POLLING (continuous check)"
+CLI_START_RESTART_ERR_NO_MODE="No mode selected. Script aborted."
+CLI_START_RESTART_MODE_SAVED="Selection saved. Script will continue starting up..."
+
+# Polling Configuration
+CLI_START_RESTART_POLLING_INTERVAL_PROMPT="Check for new emails every how many seconds?"
+CLI_START_RESTART_ERR_INVALID_INT="Value \"%s\" is not a valid integer greater than zero."
+
+# Mode Notifications
+CLI_START_RESTART_NOTIFY_IDLE_TITLE="⚡ IDLE mode set"
+CLI_START_RESTART_NOTIFY_IDLE_BODY="Backend will run in IMAP IDLE mode"
+CLI_START_RESTART_NOTIFY_POLLING_TITLE="⏳ POLLING mode set"
+CLI_START_RESTART_NOTIFY_POLLING_BODY="Backend will check emails every %s s."
+
+# --- SECTION 3: PROCESS LOCK (SINGLE INSTANCE) ---
+CLI_START_RESTART_WARN_RUNNING="Script is already running in the background."
+CLI_START_RESTART_PROMPT_STOP="Do you want to stop all running processes (Conky and backend)?"
+CLI_START_RESTART_LOG_STOPPING="Stopping processes..."
+CLI_START_RESTART_NOTIFY_STOPPED_TITLE="✅ Stopped"
+CLI_START_RESTART_NOTIFY_STOPPED_BODY="Processes finished correctly."
+CLI_START_RESTART_LOG_STOPPED_SUCCESS="All processes have been stopped."
+
+# Restart after stop
+CLI_START_RESTART_PROMPT_RESTART="Do you want to restart the widget now?"
+CLI_START_RESTART_LOG_RESTARTING="Restarting..."
+CLI_START_RESTART_NOTIFY_RESTARTING="🔁 Restarting!"
+CLI_START_RESTART_LOG_FINISHED_NO_RESTART="Finished. Widget was not restarted."
+
+# --- SECTION 4: WATCHDOGS & FILE CHECKS ---
+CLI_START_RESTART_NOTIFY_MISSING_PY_TITLE="❗ File missing"
+CLI_START_RESTART_NOTIFY_MISSING_PY_BODY="File %s not found."
+CLI_START_RESTART_ERR_MISSING_PY="File %s not found."
+CLI_START_RESTART_NOTIFY_WATCHDOG_TITLE="⚠️ Conky Restart"
+CLI_START_RESTART_NOTIFY_WATCHDOG_BODY="Process %s exceeded %s MB RAM."
+
+# --- SECTION 5: PYTHON ENVIRONMENT (VENV & LIBS) ---
+CLI_START_RESTART_LOG_LOCATION_CHANGED="Project location change detected. Fixing..."
+CLI_START_RESTART_LOG_MISSING_LIBS="Missing required libs in venv. Fixing..."
+CLI_START_RESTART_NOTIFY_VENV_FIX_TITLE="🛠️ Venv repair"
+CLI_START_RESTART_NOTIFY_VENV_FIX_BODY="Configuring environment..."
+CLI_START_RESTART_LOG_VENV_CONFIGURING="Location change or missing environment detected. Configuring..."
+CLI_START_RESTART_ERR_VENV_CREATE="Failed to create Python venv! Make sure python3-venv package is installed."
+CLI_START_RESTART_LOG_INSTALL_LOCAL="Installing libraries from local 'lib' folder..."
+CLI_START_RESTART_ERR_INSTALL_LOCAL="Error installing libraries from local 'lib' folder (%s)!"
+CLI_START_RESTART_LOG_INSTALL_NET="No 'lib' folder. Downloading libraries from internet..."
+CLI_START_RESTART_ERR_INSTALL_NET="Error downloading libraries from internet."
+CLI_START_RESTART_LOG_VENV_UPDATED="Python environment has been updated."
+CLI_START_RESTART_LOG_VENV_ACTIVATE="Activating Python venv..."
+CLI_START_RESTART_NOTIFY_VENV_ACTIVE_TITLE="🐍 Virtualenv"
+CLI_START_RESTART_NOTIFY_VENV_ACTIVE_BODY="Activating Python venv..."
+
+# --- SECTION 6: BACKEND STARTUP ---
+CLI_START_RESTART_LOG_START_PYTHON="Starting Python backend..."
+CLI_START_RESTART_LOG_WAIT_CACHE="Waiting for first cache file generation by backend..."
+CLI_START_RESTART_NOTIFY_WAIT_TITLE="⏳ Waiting"
+CLI_START_RESTART_NOTIFY_WAIT_BODY="Waiting for %s creation..."
+
+# Success
+CLI_START_RESTART_NOTIFY_SUCCESS_TITLE="✅ Python working"
+CLI_START_RESTART_NOTIFY_SUCCESS_BODY="Backend created cache file in %s s."
+CLI_START_RESTART_LOG_SUCCESS_CACHE="Python backend successfully created cache file: %s"
+
+# Error
+CLI_START_RESTART_NOTIFY_FAIL_TITLE="❌ Startup error!"
+CLI_START_RESTART_NOTIFY_FAIL_BODY="File %s was not created."
+CLI_START_RESTART_ERR_FAIL_CACHE="Cache file not created. Python backend exited with error. Check logs above."
+
+# ==============================================================================
+# Script: CLI_Configure_avatars.sh
+# ==============================================================================
+# --- Common / Prompts ---
+CLI_CONFIGURE_AVATARS_PRESS_ENTER="Press Enter to close..."
+CLI_CONFIGURE_AVATARS_PRESS_ENTER_CONTINUE="Press Enter..."
+CLI_CONFIGURE_AVATARS_YES_NO="Y/N"
+CLI_CONFIGURE_AVATARS_INVALID_OPTION="Invalid option. Try again."
+CLI_CONFIGURE_AVATARS_UNKNOWN_OPT="Unknown option."
+CLI_CONFIGURE_AVATARS_INVALID_SEL="Invalid selection."
+
+# --- JSON Handling (Database) ---
+CLI_CONFIGURE_AVATARS_JSON_CORRUPTED="JSON configuration file is corrupted."
+CLI_CONFIGURE_AVATARS_RESET_CONFIRM="Do you want to reset it (old one will be kept as .bak)?"
+CLI_CONFIGURE_AVATARS_RESET_SUCCESS="Configuration file reset."
+CLI_CONFIGURE_AVATARS_RESET_FAIL="Cannot continue with corrupted file. Fix it manually."
+CLI_CONFIGURE_AVATARS_MISSING_JQ="Missing 'jq'. Install: sudo apt install jq"
+CLI_CONFIGURE_AVATARS_DB_EMPTY="Database is empty."
+
+# --- File Operations (Deletion) ---
+CLI_CONFIGURE_AVATARS_DB_ENTRY_REMOVED="Database entry removed."
+CLI_CONFIGURE_AVATARS_IMAGE_FILE="Image file: %s"
+CLI_CONFIGURE_AVATARS_DELETE_FILE_PROMPT="Delete this file from disk?"
+CLI_CONFIGURE_AVATARS_FILE_DELETED="File deleted."
+CLI_CONFIGURE_AVATARS_EMPTY_FOLDER_REMOVED="Empty category folder removed."
+CLI_CONFIGURE_AVATARS_FILE_KEPT="File kept."
+
+# --- Image Import ---
+CLI_CONFIGURE_AVATARS_SELECTING_IMG="Selecting image for: %s"
+CLI_CONFIGURE_AVATARS_TAB_HINT="(Use TAB to autocomplete path, or press ENTER to cancel)"
+CLI_CONFIGURE_AVATARS_ENTER_PATH="Enter path to image file"
+CLI_CONFIGURE_AVATARS_FILE_NOT_FOUND="File not found: %s"
+CLI_CONFIGURE_AVATARS_COPY_PROMPT="Copy file to project folder (Categories)?"
+CLI_CONFIGURE_AVATARS_CATS_AVAILABLE="Available categories:"
+CLI_CONFIGURE_AVATARS_ENTER_CAT="Enter category name (or new one)"
+CLI_CONFIGURE_AVATARS_OVERWRITE_PROMPT="File '%s' already exists in '%s'. Overwrite?"
+
+# --- Main Interface & List ---
+CLI_CONFIGURE_AVATARS_TITLE="--- Zupix Avatar Manager v4.7 (CLI) ---"
+CLI_CONFIGURE_AVATARS_PROJECT_DIR="Project directory: %s"
+CLI_CONFIGURE_AVATARS_CAT_EXT="External / Other"
+CLI_CONFIGURE_AVATARS_CAT_ROOT="General (Root)"
+
+# --- Main Menu (Actions) ---
+CLI_CONFIGURE_AVATARS_ACTIONS="Available actions:"
+CLI_CONFIGURE_AVATARS_ACTION_ADD="  a) ➕ Add new entry"
+CLI_CONFIGURE_AVATARS_ACTION_QUIT="  q) ❌ Quit"
+CLI_CONFIGURE_AVATARS_CHOOSE="Select number (edit/delete) or action [a/q]: "
+CLI_CONFIGURE_AVATARS_GOODBYE="Goodbye!"
+
+# --- Adding Entry ---
+CLI_CONFIGURE_AVATARS_ENTER_EMAIL="Enter e-mail address (or 'default')"
+CLI_CONFIGURE_AVATARS_EMAIL_EXISTS="This email already exists. Select it from list to edit."
+CLI_CONFIGURE_AVATARS_ADDED="Added: %s"
+
+# --- Editing Entry ---
+CLI_CONFIGURE_AVATARS_EDIT_TITLE="Editing entry: "
+CLI_CONFIGURE_AVATARS_CURRENT_FILE="Current file: %s"
+CLI_CONFIGURE_AVATARS_OPT_CHANGE="  1) 🖼️  Change image"
+CLI_CONFIGURE_AVATARS_OPT_DELETE="  2) 🗑️  Delete this entry"
+CLI_CONFIGURE_AVATARS_OPT_CANCEL="  0) ↩️  Cancel"
+CLI_CONFIGURE_AVATARS_CHOICE="Choice: "
+CLI_CONFIGURE_AVATARS_UPDATED="Updated."
+CLI_CONFIGURE_AVATARS_CONFIRM_DELETE="Are you sure to delete entry for '%s'?"
+CLI_CONFIGURE_AVATARS_CANCELLED="Cancelled."
+
+# ==============================================================================
+# Script: CLI_Mark_n_messages_as_unread.sh
+# ==============================================================================
+# --- Terminal & System ---
+CLI_MARK_N_MESSAGES_AS_UNREAD_TERMINAL_CLOSE="Script finished. Press Enter to close this window..."
+CLI_MARK_N_MESSAGES_AS_UNREAD_ERR_CD_PROJECT="Error: Cannot change to project directory: %s"
+CLI_MARK_N_MESSAGES_AS_UNREAD_PRESS_ENTER="Press Enter..."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PRESS_ENTER_EXIT="Press Enter to exit..."
+
+# --- Authorization (Encryption) ---
+CLI_MARK_N_MESSAGES_AS_UNREAD_DETECTED_ENCRYPTED="Encrypted accounts detected."
+CLI_MARK_N_MESSAGES_AS_UNREAD_ENTER_PASS="Enter master password (attempt %s/3): "
+CLI_MARK_N_MESSAGES_AS_UNREAD_PASS_EMPTY="No password provided."
+CLI_MARK_N_MESSAGES_AS_UNREAD_AUTH_SUCCESS="Authorization successful."
+CLI_MARK_N_MESSAGES_AS_UNREAD_AUTH_FAIL="Error: Invalid master password."
+CLI_MARK_N_MESSAGES_AS_UNREAD_AUTH_TOO_MANY="Too many failed authorization attempts. Aborting."
+
+# --- User Interface ---
+CLI_MARK_N_MESSAGES_AS_UNREAD_DESC="This script will mark a specified number of latest emails as unread on each configured account."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PROMPT_COUNT="How many emails to mark on account?"
+CLI_MARK_N_MESSAGES_AS_UNREAD_ERR_INVALID_COUNT="Invalid value: '%s'. Please enter an integer greater than zero."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PROGRESS_LABEL="Progress"
+
+# --- Python Logic (Messages passed to internal script) ---
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_NO_FILE="Missing account file: %s"
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_NO_ACCOUNTS="No accounts in accounts.json!"
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_INFO_NO_WORK="No work to do (empty INBOXes or errors)."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_DECRYPT="[%s]: Password decryption error."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_INBOX_RW="[%s]: Cannot open INBOX in write mode."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_FETCH="[%s]: Cannot fetch email list."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_INFO_EMPTY="[%s]: No messages to mark."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_OK_MARKED="[%s]: Marked as unread --> %d messages."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_SERVER="[%s]: Server error while marking."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_EXCEPTION="[%s]: Exception: %s"
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_GENERAL="[%s]: Error occurred: %s"
+
+# --- Completion ---
+CLI_MARK_N_MESSAGES_AS_UNREAD_FINISHED="Finished marking emails."
+
+# ==============================================================================
+# Script: CLI_Mark_all_messages_as_read.sh
+# ==============================================================================
+# --- Terminal & System ---
+CLI_MARK_ALL_MESSAGES_AS_READ_TERMINAL_CLOSE="Script finished. Press Enter to close this window..."
+CLI_MARK_ALL_MESSAGES_AS_READ_ERR_CD_PROJECT="Error: Cannot change to project directory: %s"
+CLI_MARK_ALL_MESSAGES_AS_READ_PRESS_ENTER="Press Enter..."
+CLI_MARK_ALL_MESSAGES_AS_READ_PRESS_ENTER_EXIT="Press Enter to exit..."
+
+# --- Authorization (Encryption) ---
+CLI_MARK_ALL_MESSAGES_AS_READ_DETECTED_ENCRYPTED="Encrypted accounts detected."
+CLI_MARK_ALL_MESSAGES_AS_READ_ENTER_PASS="Enter master password (attempt %s/3): "
+CLI_MARK_ALL_MESSAGES_AS_READ_PASS_EMPTY="No password provided."
+CLI_MARK_ALL_MESSAGES_AS_READ_AUTH_SUCCESS="Authorization successful."
+CLI_MARK_ALL_MESSAGES_AS_READ_AUTH_FAIL="Error: Invalid master password."
+CLI_MARK_ALL_MESSAGES_AS_READ_AUTH_TOO_MANY="Too many failed authorization attempts. Aborting."
+
+# --- User Interface ---
+CLI_MARK_ALL_MESSAGES_AS_READ_PROGRESS_LABEL="Progress"
+CLI_MARK_ALL_MESSAGES_AS_READ_START_MARKING="Starting to mark all unread messages as read..."
+
+# --- Python Logic (Messages) ---
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_NO_FILE="Missing account file: %s"
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_NO_ACCOUNTS="No accounts in accounts.json!"
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_DECRYPT="[%s]: Password decryption error."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_INBOX_RW="[%s]: Cannot open INBOX in write mode."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_FETCH="[%s]: Cannot fetch unread messages list."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_INFO_NO_MSGS="[%s]: No unread messages to mark."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_OK_MARKED="[%s]: Marked as read --> %d messages."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_SERVER="[%s]: Server error while marking messages."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_CRITICAL="[%s]: Critical error: %s"
+
+# --- Completion ---
+CLI_MARK_ALL_MESSAGES_AS_READ_FINISHED="Finished marking all emails."
+
+# ==============================================================================
+# Script: CLI_Change_layout_and_scaling.sh
+# ==============================================================================
+# --- Terminal & System ---
+CLI_CHANGE_LAYOUT_TERMINAL_CLOSE="Script finished. Press Enter to close this window..."
+CLI_CHANGE_LAYOUT_ERR_DIR="Directory error"
+CLI_CHANGE_LAYOUT_LOCK_FAIL="Another instance is running!"
+
+# --- ASCII Preview (Headers) ---
+CLI_CHANGE_LAYOUT_PREVIEW_HEADER="4K LAYOUTS (Original, large)"
+CLI_CHANGE_LAYOUT_PREVIEW_FOOTER_HINT="(more layouts below - scroll with arrows, 'q' to exit)"
+CLI_CHANGE_LAYOUT_PREVIEW_FULLHD_TITLE="FullHD LAYOUTS (Manually resized)"
+CLI_CHANGE_LAYOUT_PREVIEW_FULLHD_DESC="(Layouts are visually identical to 4K but have\n smaller dimensions and fonts defined in Lua code)"
+CLI_CHANGE_LAYOUT_PREVIEW_CLOSE_HINT="(Press 'q' to close preview and continue)"
+
+# --- Main Menu & Selection ---
+CLI_CHANGE_LAYOUT_TITLE="CONKY CONFIGURATOR (CLI)"
+CLI_CHANGE_LAYOUT_PROMPT_PREVIEW="Do you want to see ASCII layout preview? [y/N]: "
+CLI_CHANGE_LAYOUT_SELECT_LAYOUT="Select layout number: "
+CLI_CHANGE_LAYOUT_OPT_EXIT="❌EXIT"
+
+# --- Input Data ---
+CLI_CHANGE_LAYOUT_INPUT_MAILS="Number of emails"
+CLI_CHANGE_LAYOUT_INPUT_SCALE="Scale (%)"
+CLI_CHANGE_LAYOUT_INPUT_WIDTH="Email block width (px)"
+CLI_CHANGE_LAYOUT_ERR_INT="Please enter an integer!"
+
+# --- Saving & Summary ---
+CLI_CHANGE_LAYOUT_SAVING="Saving configuration..."
+CLI_CHANGE_LAYOUT_DONE="DONE!"
+CLI_CHANGE_LAYOUT_SUMMARY_LAYOUT="Layout: %s"
+CLI_CHANGE_LAYOUT_SUMMARY_MAILS_WIDTH="Emails: %s, Width: %spx"
+CLI_CHANGE_LAYOUT_SUMMARY_SCALE_DIMS="Scale: %s%%, New dimensions: %sx%s"
+CLI_CHANGE_LAYOUT_AGAIN_PROMPT="Configure again? [y/N]: "
+
+# ==============================================================================
+# Script: CLI_Change_displayed_account.sh
+# ==============================================================================
+# --- System / Errors ---
+CLI_CHANGE_DISPLAYED_ACCOUNT_ERR_CD="Error: Cannot change to project directory: %s"
+CLI_CHANGE_DISPLAYED_ACCOUNT_PRESS_ENTER="Press Enter..."
+CLI_CHANGE_DISPLAYED_ACCOUNT_PRESS_ENTER_EXIT="Press Enter to exit..."
+CLI_CHANGE_DISPLAYED_ACCOUNT_ERR_JQ="The 'jq' tool is not installed. Please install it."
+CLI_CHANGE_DISPLAYED_ACCOUNT_ERR_NO_FILE="Missing accounts file: %s"
+CLI_CHANGE_DISPLAYED_ACCOUNT_ERR_NO_ACCOUNTS="No accounts found in %s"
+
+# --- Menu & Options ---
+CLI_CHANGE_DISPLAYED_ACCOUNT_HEADER="Select account to be displayed in Conky:"
+CLI_CHANGE_DISPLAYED_ACCOUNT_PROMPT="Enter option number: "
+CLI_CHANGE_DISPLAYED_ACCOUNT_OPT_MULTI="Multi-account (all)"
+CLI_CHANGE_DISPLAYED_ACCOUNT_OPT_EXIT="❌Exit"
+CLI_CHANGE_DISPLAYED_ACCOUNT_INVALID="Invalid option. Try again."
+
+# --- Success & Notifications ---
+CLI_CHANGE_DISPLAYED_ACCOUNT_SWITCHED="Switched to: %s"
+CLI_CHANGE_DISPLAYED_ACCOUNT_NOTIFY_TITLE="Zupix-Py2Lua-Mail-conky"
+CLI_CHANGE_DISPLAYED_ACCOUNT_NOTIFY_BODY="Selected: %s"
+CLI_CHANGE_DISPLAYED_ACCOUNT_FINISHED="Finished."
+
+

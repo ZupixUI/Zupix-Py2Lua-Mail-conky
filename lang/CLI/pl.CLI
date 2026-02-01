@@ -1,0 +1,597 @@
+# --- Klawisze i Wybór (Tak/Nie) ---
+CLI_YES_NO="T/N"
+CLI_YES="T"
+CLI_NO="N"
+
+# ==============================================================================
+# SCRIPT: 1.CLI_Install_dependencies.sh
+# ==============================================================================
+
+# Terminal detection
+CLI_INSTALL_DEPENDENCIES_ERR_NO_TERM="Nie znaleziono emulatora terminala z listy. Aby uruchomić ten skrypt, odpal go ręcznie w swoim terminalu."
+CLI_INSTALL_DEPENDENCIES_PROMPT_TERM_EXIT="Skrypt zakończył działanie. Naciśnij Enter, aby zamknąć to okno..."
+CLI_INSTALL_DEPENDENCIES_ERR_NO_SUPPORTED_TERM="Nie znaleziono żadnego obsługiwanego emulatora terminala!"
+CLI_INSTALL_DEPENDENCIES_MSG_OP_DONE="--- Operacja zakończona. Naciśnij Enter, aby zamknąć to okno terminala ---"
+
+# Shell compatibility
+CLI_INSTALL_DEPENDENCIES_INFO_SHELL="🔄 Przełączam powłokę na bash dla kompatybilności..."
+CLI_INSTALL_DEPENDENCIES_ERR_TRAP="Nieoczekiwany błąd w skrypcie w sekcji: $BASH_COMMAND"
+
+# Distro detection
+CLI_INSTALL_DEPENDENCIES_INFO_DETECT="Wykrywam dystrybucję systemu..."
+CLI_INSTALL_DEPENDENCIES_WARN_NO_LSB="Brak polecenia 'lsb_release'. Będziesz musiał wybrać dystrybucję ręcznie."
+CLI_INSTALL_DEPENDENCIES_INFO_SELECT_DISTRO="Proszę wybrać swoją dystrybucję z listy poniżej:"
+CLI_INSTALL_DEPENDENCIES_WARN_DEBIAN="Wybrano opcję 'Inna (oparta o Debian)'. Użyję domyślnych pakietów dla Debiana."
+CLI_INSTALL_DEPENDENCIES_WARN_ARCH="Wybrano opcję 'Inna (oparta o Arch)'. Użyję domyślnych pakietów dla Archa."
+CLI_INSTALL_DEPENDENCIES_WARN_RPM="Wybrano opcję 'Inna (oparta o RPM)'. Użyję domyślnych pakietów dla Fedory."
+CLI_INSTALL_DEPENDENCIES_INFO_CANCEL="Anulowano wybór. Skrypt kończy działanie."
+CLI_INSTALL_DEPENDENCIES_ERR_INVALID_OPT="Nieprawidłowa opcja. Wpisz numer z listy."
+CLI_INSTALL_DEPENDENCIES_SUCCESS_DETECT="Wykryto system: %s (wersja: %s)"
+
+# Distro Menu Options
+CLI_INSTALL_DEPENDENCIES_OPT_ARCH_OTHER="Arch/Manjaro/Inne"
+CLI_INSTALL_DEPENDENCIES_OPT_OTHER_DEBIAN="Inna (oparta o Debian)"
+CLI_INSTALL_DEPENDENCIES_OPT_OTHER_ARCH="Inna (oparta o Arch)"
+CLI_INSTALL_DEPENDENCIES_OPT_OTHER_RPM="Inna (oparta o RPM)"
+CLI_INSTALL_DEPENDENCIES_OPT_EXIT="Wyjdź"
+
+# Notify-send
+CLI_INSTALL_DEPENDENCIES_ERR_NIXOS_NOTIFY="Na NixOS zainstaluj notify-send ręcznie przez configuration.nix"
+CLI_INSTALL_DEPENDENCIES_GENTOO_HEADER="💜 Wykryto Gentoo Linux 💜"
+CLI_INSTALL_DEPENDENCIES_WARN_MISSING_NOTIFY_LIB="Brakuje narzędzia 'notify-send' (pakiet: x11-libs/libnotify)."
+CLI_INSTALL_DEPENDENCIES_MSG_GENTOO_INSTALL="Proszę zainstalować go ręcznie w innym oknie:"
+CLI_INSTALL_DEPENDENCIES_PROMPT_CHECK_AGAIN="Naciśnij Enter po zakończeniu instalacji, aby sprawdzić ponownie..."
+CLI_INSTALL_DEPENDENCIES_SUCCESS_NOTIFY="Wykryto notify-send! Kontynuuję."
+CLI_INSTALL_DEPENDENCIES_ERR_STILL_NO_NOTIFY="Nadal nie wykryto notify-send. Skrypt kończy działanie."
+CLI_INSTALL_DEPENDENCIES_WARN_MISSING_NOTIFY_PKG="Brakuje narzędzia 'notify-send' (pakiet: %s)."
+CLI_INSTALL_DEPENDENCIES_CHOICE_INSTALL_NOW="Czy chcesz zainstalować je teraz?"
+CLI_INSTALL_DEPENDENCIES_INFO_INSTALL_NEW_WINDOW="Instalacja %s została uruchomiona w nowym oknie terminala."
+CLI_INSTALL_DEPENDENCIES_INFO_PASSWORD="Jeśli zostaniesz poproszony o hasło, wpisz je w tamtym oknie."
+CLI_INSTALL_DEPENDENCIES_INFO_RESTART="Po zakończeniu instalacji, uruchom ten skrypt ponownie."
+CLI_INSTALL_DEPENDENCIES_ERR_NOTIFY_REQ="Instalacja 'notify-send' jest wymagana. Anulowano."
+
+# Gentoo / Unknown PM Manual Instructions
+CLI_INSTALL_DEPENDENCIES_MANUAL_CONKY="wymagane flagi USE: %s, %s, %s"
+CLI_INSTALL_DEPENDENCIES_MANUAL_OR_OTHER="(lub inne, np. Google Fonts)"
+CLI_INSTALL_DEPENDENCIES_MANUAL_PYTHON="zazwyczaj wbudowany w %s"
+CLI_INSTALL_DEPENDENCIES_MANUAL_CONKY_CAIRO="(z obsługą cairo)"
+CLI_INSTALL_DEPENDENCIES_MANUAL_FONTS="(lub podobna czcionka kolorowa)"
+CLI_INSTALL_DEPENDENCIES_MANUAL_VENV="(zależnie od distro)"
+
+# Package Installation Loop
+CLI_INSTALL_DEPENDENCIES_GENTOO_EXCEPTION="💜 Specjalny wyjątek dla Gentoo :) 💜"
+CLI_INSTALL_DEPENDENCIES_GENTOO_NO_AUTO="Skrypt nie posiada automatycznych reguł instalacji (emerge) dla tego systemu."
+CLI_INSTALL_DEPENDENCIES_ERR_UNKNOWN_PM="❌ Nie rozpoznano menedżera pakietów! ❌"
+CLI_INSTALL_DEPENDENCIES_NO_AUTO_RULES="Skrypt nie posiada automatycznych reguł instalacji dla tego systemu."
+CLI_INSTALL_DEPENDENCIES_MSG_MANUAL_INSTALL="Musisz ręcznie zainstalować poniższe pakiety:"
+CLI_INSTALL_DEPENDENCIES_INFO_ACTION="Wybierz akcję:"
+CLI_INSTALL_DEPENDENCIES_OPT_SKIP_CHECK="[P] - Pomiń sprawdzanie zależności (Nie sprawdzaj pakietów, przejdź do tworzenia Python venv)."
+CLI_INSTALL_DEPENDENCIES_OPT_CANCEL="[A] - Anuluj i zakończ skrypt."
+CLI_INSTALL_DEPENDENCIES_PROMPT_CHOICE="Twój wybór?"
+CLI_INSTALL_DEPENDENCIES_WARN_HEADER="⚠️  OSTRZEŻENIE! ⚠️"
+CLI_INSTALL_DEPENDENCIES_WARN_SKIP="Pominięcie tego kroku oznacza ryzyko błędów w działaniu widżetu, jeśli brakuje Conky lub Lua."
+CLI_INSTALL_DEPENDENCIES_CHOICE_CONFIRM_CONTINUE="Czy na pewno chcesz kontynuować?"
+CLI_INSTALL_DEPENDENCIES_WARN_SKIPPED="Pominięto sprawdzanie pakietów systemowych."
+CLI_INSTALL_DEPENDENCIES_INFO_CANCELLED="Instalacja przerwana przez użytkownika."
+CLI_INSTALL_DEPENDENCIES_SUCCESS_ALL_INSTALLED="Wszystkie wymagane pakiety są już zainstalowane!"
+CLI_INSTALL_DEPENDENCIES_ERR_STILL_MISSING="🔧 W systemie nadal brakuje następujących pakietów:"
+CLI_INSTALL_DEPENDENCIES_WARN_MISSING="🔧 W systemie brakuje następujących pakietów:"
+CLI_INSTALL_DEPENDENCIES_OPT_AUTO="[I] - Rozpocznij automatyczną instalację w nowym terminalu."
+CLI_INSTALL_DEPENDENCIES_OPT_SAFE="[T] - Tryb awaryjny (wyświetl polecenie do ręcznego wklejenia)."
+CLI_INSTALL_DEPENDENCIES_OPT_CHECK="[S] - Sprawdź ponownie (jeśli zainstalowałeś pakiety w innym oknie)."
+CLI_INSTALL_DEPENDENCIES_OPT_SKIP="[P] - Pomiń sprawdzanie (Niebezpieczne! Używaj tylko jeśli wiesz co robisz)."
+CLI_INSTALL_DEPENDENCIES_INFO_AUTO_START="Uruchamiam instalację w nowym oknie terminala..."
+CLI_INSTALL_DEPENDENCIES_WARN_RETURN="Po zakończeniu instalacji w nowym oknie, wróć tutaj i wybierz opcję 'Sprawdź ponownie'."
+CLI_INSTALL_DEPENDENCIES_INFO_SAFE_MODE="TRYB AWARYJNY: Uruchom poniższe polecenie w swoim terminalu, aby zainstalować brakujące pakiety:"
+CLI_INSTALL_DEPENDENCIES_INFO_CHECKING="Sprawdzam ponownie zależności..."
+CLI_INSTALL_DEPENDENCIES_WARN_SKIP_DESC="Pominięcie tego kroku oznacza, że skrypt nie zweryfikuje, czy wymagane pakiety są zainstalowane."
+CLI_INSTALL_DEPENDENCIES_WARN_SKIP_ERR="Jeśli ich brakuje, widżet nie uruchomi się poprawnie lub wystąpią błędy."
+CLI_INSTALL_DEPENDENCIES_CHOICE_CONFIRM_NO_INSTALL="Czy na pewno chcesz kontynuować bez instalacji?"
+CLI_INSTALL_DEPENDENCIES_WARN_SKIPPED_USER="Pominięto sprawdzanie zależności na żądanie użytkownika."
+CLI_INSTALL_DEPENDENCIES_INFO_CANCEL_SKIP="Anulowano pomijanie. Wracam do wyboru akcji."
+CLI_INSTALL_DEPENDENCIES_INFO_CANCEL_REMEMBER="Instalacja przerwana przez użytkownika. Pamiętaj, aby doinstalować brakujące pakiety."
+
+# Conky Lua Check
+CLI_INSTALL_DEPENDENCIES_INFO_CHECK_LUA="Sprawdzam wsparcie Lua w Conky..."
+CLI_INSTALL_DEPENDENCIES_WARN_NO_LUA="Conky zainstalowany w systemie NIE obsługuje Lua. Widżet mailowy nie zadziała."
+CLI_INSTALL_DEPENDENCIES_WARN_NO_LUA_V="'conky -v' nie zwraca wsparcia dla Lua. Widżet mailowy nie zadziała."
+CLI_INSTALL_DEPENDENCIES_INFO_LUA_UNKNOWN="Conky ma wsparcie dla Lua, ale nie udało się ustalić wersji runtime. Dostępne polecenia Lua: %s. Widżet prawdopodobnie będzie działał."
+CLI_INSTALL_DEPENDENCIES_SUCCESS_LUA_COMPAT="Zgodność: Conky używa Lua %s (runtime). W systemie dostępne są polecenia Lua: %s."
+CLI_INSTALL_DEPENDENCIES_SUCCESS_LUA_ONLY="Conky został skompilowany z biblioteką Lua %s (runtime)."
+CLI_INSTALL_DEPENDENCIES_INFO_LUA_PATH="Conky zawsze używa swojej biblioteki, niezależnie od tego, jakie polecenia Lua są dostępne w PATH."
+
+# dkjson
+CLI_INSTALL_DEPENDENCIES_INFO_DL_DKJSON="Pobieram plik dkjson.lua..."
+CLI_INSTALL_DEPENDENCIES_ERR_NO_NET="Brak połączenia z internetem lub host raw.githubusercontent.com jest niedostępny."
+CLI_INSTALL_DEPENDENCIES_ERR_MKDIR="Nie mogę utworzyć katalogu: %s"
+CLI_INSTALL_DEPENDENCIES_ERR_DL_FAIL="Błąd podczas pobierania dkjson.lua"
+CLI_INSTALL_DEPENDENCIES_ERR_SAVE_FAIL="Błąd podczas zapisu dkjson.lua"
+CLI_INSTALL_DEPENDENCIES_SUCCESS_DL="Plik dkjson.lua został pobrany do: %s"
+CLI_INSTALL_DEPENDENCIES_SUCCESS_EXISTS="Plik dkjson.lua już istnieje w: %s"
+
+# Python Venv
+CLI_INSTALL_DEPENDENCIES_INFO_PREP_VENV="Przygotowuję środowisko Python venv..."
+CLI_INSTALL_DEPENDENCIES_WARN_VENV_EXISTS="Wykryto istniejące środowisko Python venv: %s"
+CLI_INSTALL_DEPENDENCIES_CHOICE_RECREATE="Czy chcesz je usunąć i utworzyć na nowo (zalecane)?"
+CLI_INSTALL_DEPENDENCIES_INFO_DEL_VENV="Usuwam stare środowisko venv..."
+CLI_INSTALL_DEPENDENCIES_INFO_KEEP_VENV="Pozostawiam istniejące środowisko venv."
+CLI_INSTALL_DEPENDENCIES_ERR_NO_VENV_MOD="Brak modułu venv w Pythonie. Na Debian/Ubuntu doinstaluj: python3-venv."
+CLI_INSTALL_DEPENDENCIES_INFO_CREATE_VENV="Tworzę nowe środowisko venv..."
+CLI_INSTALL_DEPENDENCIES_ERR_CREATE_VENV="Błąd przy tworzeniu venv!"
+CLI_INSTALL_DEPENDENCIES_INFO_CONFIG_PIP="Konfiguracja pip..."
+CLI_INSTALL_DEPENDENCIES_INFO_UPDATE_PIP="Aktualizuję pip w venv (tryb online)..."
+CLI_INSTALL_DEPENDENCIES_WARN_PIP_FAIL="Ostrzeżenie: Nie udało się zaktualizować pip, używam wersji systemowej."
+CLI_INSTALL_DEPENDENCIES_INFO_INSTALL_LIBS="Instaluję biblioteki Python (imapclient, beautifulsoup4)..."
+CLI_INSTALL_DEPENDENCIES_INFO_OFFLINE="Tryb OFFLINE: Instalacja z folderu lib..."
+CLI_INSTALL_DEPENDENCIES_ERR_OFFLINE="Błąd instalacji bibliotek z folderu lib! Sprawdź czy pliki .whl istnieją."
+CLI_INSTALL_DEPENDENCIES_INFO_ONLINE="Tryb ONLINE: Pobieranie z internetu..."
+CLI_INSTALL_DEPENDENCIES_ERR_ONLINE="Błąd instalacji bibliotek Python z internetu!"
+CLI_INSTALL_DEPENDENCIES_SUCCESS_VENV="Biblioteki Python zostały pomyślnie zainstalowane w: %s"
+
+# OpenMandriva specific
+CLI_INSTALL_DEPENDENCIES_INFO_OM_REPO_OFF="ℹ️  Wymagane repozytorium 'Extra' (rolling-x86_64-extra) jest wyłączone."
+CLI_INSTALL_DEPENDENCIES_ERR_OM_REPO_STILL_OFF="⛔  Wymagane repozytorium 'Extra' (rolling-x86_64-extra) jest NADAL wyłączone!"
+CLI_INSTALL_DEPENDENCIES_MSG_OM_CONKY="Pakiet 'conky' znajduje się w tym repozytorium. Zaleca się jego włączenie."
+CLI_INSTALL_DEPENDENCIES_MSG_OM_ACTION="Wybierz akcję:"
+CLI_INSTALL_DEPENDENCIES_OPT_OM_OPEN="[O] - Otwórz Software Repository Selector (om-repo-picker)."
+CLI_INSTALL_DEPENDENCIES_OPT_OM_TEMP="[T] - Instalacja tymczasowa (awaryjna, jednorazowe użycie repo)."
+CLI_INSTALL_DEPENDENCIES_OPT_OM_CHECK="[S] - Sprawdź ponownie (jeśli włączyłeś repozytorium ręcznie)."
+CLI_INSTALL_DEPENDENCIES_OPT_OM_CANCEL="[A] - Anuluj."
+CLI_INSTALL_DEPENDENCIES_ECHO_OM_PICKER="Uruchamiam om-repo-picker..."
+CLI_INSTALL_DEPENDENCIES_INFO_REFRESH="Odświeżam bazę pakietów..."
+CLI_INSTALL_DEPENDENCIES_WARN_OM_TEMP="Wybrano tryb instalacji tymczasowej."
+CLI_INSTALL_DEPENDENCIES_ECHO_OM_NO_CHANGE="Konfiguracja systemu nie zostanie zmieniona na stałe."
+CLI_INSTALL_DEPENDENCIES_INFO_VERIFY="Weryfikacja repozytoriów..."
+CLI_INSTALL_DEPENDENCIES_ERR_OM_CANCEL="Przerwano instalację (brak repozytorium Extra)."
+CLI_INSTALL_DEPENDENCIES_WARN_OM_ROCK="⚠️  OSTRZEŻENIE OpenMandriva Lx (Rock/Vanadium) ⚠️"
+CLI_INSTALL_DEPENDENCIES_MSG_OM_STABLE="Wykryto wersję stabilną. Aby widget działał poprawnie, instalator pobierze"
+CLI_INSTALL_DEPENDENCIES_MSG_OM_NEWER="nowszą wersję pakietu 'conky' (z obsługą Lua/Cairo) korzystając z repozytorium Rolling."
+CLI_INSTALL_DEPENDENCIES_CHOICE_OM_HYBRID="Czy zgadzasz się na tymczasowe pobranie pakietu z nowszego systemu?"
+CLI_INSTALL_DEPENDENCIES_ERR_OM_NO_PERM="Użytkownik nie wyraził zgody na instalację z repo Rolling."
+
+# Completion
+CLI_INSTALL_DEPENDENCIES_SUCCESS_DONE="Skrypt zakończył instalację zależności! 🎉"
+CLI_INSTALL_DEPENDENCIES_INFO_NEXT_STEP="Kolejnym krokiem jest uruchomienie skryptu '2.CLI_Configure_accounts.sh',"
+CLI_INSTALL_DEPENDENCIES_INFO_REQUIRED="który jest konieczny do prawidłowego działania widgetu."
+CLI_INSTALL_DEPENDENCIES_CHOICE_RUN_NOW="Czy chcesz go uruchomić teraz?"
+CLI_INSTALL_DEPENDENCIES_ERR_NEXT_MISSING="Nie znaleziono pliku '%s'!"
+CLI_INSTALL_DEPENDENCIES_INFO_REMEMBER="Zakończono. Pamiętaj, aby ręcznie uruchomić skrypt '2.CLI_Configure_accounts.sh'."
+
+# CLI_LIB (Wspólne logi)
+CLI_LIB_LOG_PREFIX_INFO="ℹ"
+CLI_LIB_LOG_PREFIX_OK="✅"
+CLI_LIB_LOG_PREFIX_WARN="⚠️"
+CLI_LIB_LOG_PREFIX_ERR="❌"
+CLI_LIB_LOG_ERR_MSG="Skrypt nie może kontynuować. Zamykanie..."
+CLI_LIB_PROMPT_CONTINUE="Naciśnij Enter, aby kontynuować..."
+CLI_LIB_ERR_INVALID_OPT="Nieprawidłowa opcja. Spróbuj ponownie."
+
+# ==============================================================================
+# SCRIPT: 2.CLI_Configure_accounts.sh
+# ==============================================================================
+# Terminal detection
+CLI_CONFIGURE_ACCOUNTS_ERR_NO_TERM="Nie znaleziono emulatora terminala. Uruchom ten skrypt ręcznie w terminalu."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_EXIT="Skrypt zakończył działanie. Naciśnij Enter, aby zamknąć to okno..."
+
+# Dependencies
+CLI_CONFIGURE_ACCOUNTS_ERR_MISSING_JQ="Narzędzie 'jq' nie jest zainstalowane. Zainstaluj je (np. sudo apt install jq)."
+CLI_CONFIGURE_ACCOUNTS_ERR_MISSING_PERL="Narzędzie 'perl' nie jest zainstalowane. Zainstaluj je."
+CLI_CONFIGURE_ACCOUNTS_ERR_MISSING_OPENSSL="Narzędzie 'openssl' nie jest zainstalowane. Zainstaluj je."
+
+# CLI Library (Prompts)
+CLI_CONFIGURE_ACCOUNTS_PROMPT_INVALID="Nieprawidłowa opcja. Spróbuj ponownie."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_ENTER="Naciśnij Enter..."
+
+# Master Password
+CLI_CONFIGURE_ACCOUNTS_INFO_SET_MASTER="Ustawianie Hasła Głównego"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_NEW_PASS="Nowe hasło"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_REPEAT_PASS="Powtórz hasło"
+CLI_CONFIGURE_ACCOUNTS_WARN_EMPTY_PASS="Hasło nie może być puste."
+CLI_CONFIGURE_ACCOUNTS_WARN_PASS_MISMATCH="Hasła nie są identyczne."
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_MASTER_SET="Hasło główne zostało ustawione."
+CLI_CONFIGURE_ACCOUNTS_WARN_AUTH_REQ="🔐 WYMAGANA AUTORYZACJA"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_ENTER_MASTER="Podaj hasło główne"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_ACCESS="Dostęp przyznany."
+CLI_CONFIGURE_ACCOUNTS_WARN_WRONG_PASS="Błędne hasło!"
+CLI_CONFIGURE_ACCOUNTS_ERR_TOO_MANY_TRIES="Zbyt wiele nieudanych prób. Zamykanie."
+CLI_CONFIGURE_ACCOUNTS_INFO_SECURITY_CONFIG="Konfiguracja zabezpieczeń"
+CLI_CONFIGURE_ACCOUNTS_CHOICE_ENABLE_SECURITY="Czy chcesz zabezpieczyć konfigurator hasłem głównym?"
+CLI_CONFIGURE_ACCOUNTS_MENU_MANAGE_MASTER="Zarządzanie hasłem głównym:"
+CLI_CONFIGURE_ACCOUNTS_OPT_CHANGE_MASTER="Zmień hasło główne"
+CLI_CONFIGURE_ACCOUNTS_OPT_REMOVE_MASTER="Usuń hasło główne (wyłącz ochronę)"
+CLI_CONFIGURE_ACCOUNTS_OPT_BACK="Wróć"
+CLI_CONFIGURE_ACCOUNTS_CHOICE_CONFIRM_REMOVE="Czy na pewno usunąć hasło? Program będzie niechroniony."
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_MASTER_REMOVED="Hasło główne usunięte."
+
+# Helper Functions
+CLI_CONFIGURE_ACCOUNTS_PROMPT_FILE_PATH="Ścieżka pliku"
+CLI_CONFIGURE_ACCOUNTS_ERR_PERL_EXEC="Wystąpił błąd podczas wykonywania skryptu Perla."
+CLI_CONFIGURE_ACCOUNTS_INFO_PICK_COLOR="Wybierz kolor dla %s:"
+CLI_CONFIGURE_ACCOUNTS_COLOR_WHITE="Biały"
+CLI_CONFIGURE_ACCOUNTS_COLOR_RED="Czerwony"
+CLI_CONFIGURE_ACCOUNTS_COLOR_GREEN="Zielony"
+CLI_CONFIGURE_ACCOUNTS_COLOR_YELLOW="Żółty"
+CLI_CONFIGURE_ACCOUNTS_COLOR_BLUE="Niebieski"
+CLI_CONFIGURE_ACCOUNTS_COLOR_MAGENTA="Magenta"
+CLI_CONFIGURE_ACCOUNTS_COLOR_CYAN="Cyjan"
+CLI_CONFIGURE_ACCOUNTS_COLOR_ORANGE="Pomarańczowy"
+CLI_CONFIGURE_ACCOUNTS_COLOR_LIME="Limonkowy"
+CLI_CONFIGURE_ACCOUNTS_COLOR_PINK="Różowy"
+CLI_CONFIGURE_ACCOUNTS_INFO_COLOR_CUSTOM="Wpisz numer z listy lub własny kod HEX (np. #AABBCC)"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_COLOR_CHOICE="Twój wybór [1-10 lub HEX]:"
+CLI_CONFIGURE_ACCOUNTS_ERR_INVALID_COLOR="Nieprawidłowy wybór. Wpisz numer 1-10 lub poprawny kod HEX."
+
+# Main Menu
+CLI_CONFIGURE_ACCOUNTS_HEADER_MAIN="--- Konfigurator Kont E-mail (CLI - Szyfrowany) ---"
+CLI_CONFIGURE_ACCOUNTS_INFO_EXISTING="Istniejące konta:"
+CLI_CONFIGURE_ACCOUNTS_WARN_NO_ACCOUNTS="Nie skonfigurowano jeszcze żadnych kont."
+CLI_CONFIGURE_ACCOUNTS_OPT_ACCOUNT_FMT="Konto: %s (%s)"
+CLI_CONFIGURE_ACCOUNTS_OPT_ADD_NEW="➕ Dodaj nowe konto"
+CLI_CONFIGURE_ACCOUNTS_OPT_IMPORT="📂 Importuj (*.json.enc / *.json)"
+CLI_CONFIGURE_ACCOUNTS_OPT_EXPORT="📤 Eksportuj (Kopia)"
+CLI_CONFIGURE_ACCOUNTS_OPT_SECURITY="🔐 Zarządzaj hasłem głównym"
+CLI_CONFIGURE_ACCOUNTS_OPT_DELETE_ALL="🗑️ Usuń wszystkie konta"
+CLI_CONFIGURE_ACCOUNTS_OPT_EXIT="❌ Zakończ"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_SELECT_OPT="Wybierz opcję: "
+
+# Exit / Start Widget
+CLI_CONFIGURE_ACCOUNTS_CHOICE_START_WIDGET="Czy chcesz uruchomić skrypt 3.START..., który uruchomi widget?"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_STARTED="Uruchomiono skrypt startowy w tle."
+CLI_CONFIGURE_ACCOUNTS_ERR_SCRIPT_MISSING="Nie można znaleźć lub uruchomić skryptu: %s"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_CONFIG_DONE="Konfiguracja zakończona."
+
+# Add Account
+CLI_CONFIGURE_ACCOUNTS_INFO_ADDING="Dodawanie nowego konta..."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_NAME="Nazwa (unikalny klucz, bez spacji)"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_HOST="Host IMAP"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_PORT="Port"
+CLI_CONFIGURE_ACCOUNTS_INFO_ENC_SELECT="Wybierz szyfrowanie:"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_LOGIN="Login (adres e-mail)"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_APP_PASS="Hasło dla aplikacji"
+CLI_CONFIGURE_ACCOUNTS_WARN_REQ_FIELDS="Nazwa i Login są wymagane. Anulowano."
+CLI_CONFIGURE_ACCOUNTS_WARN_PORT_NUM="Port musi być liczbą. Anulowano."
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_ADDED="Konto '%s' zostało dodane (hasło zaszyfrowane)."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_RETURN_MENU="Naciśnij Enter, aby wrócić do menu..."
+
+# Import
+CLI_CONFIGURE_ACCOUNTS_INFO_IMPORT_PATH="Wskaż ścieżkę do pliku (.json lub .json.enc)."
+CLI_CONFIGURE_ACCOUNTS_WARN_CANCELLED="Anulowano."
+CLI_CONFIGURE_ACCOUNTS_WARN_FILE_NOT_FOUND="Plik nie istnieje: %s"
+CLI_CONFIGURE_ACCOUNTS_WARN_ENCRYPTED_BACKUP="Wykryto zaszyfrowaną kopię zapasową."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_DECRYPT_PASS="Podaj hasło transportowe"
+CLI_CONFIGURE_ACCOUNTS_WARN_DECRYPT_FAIL="Błąd deszyfrowania (złe hasło?)"
+CLI_CONFIGURE_ACCOUNTS_WARN_INVALID_JSON="Treść nie jest poprawnym JSON-em."
+CLI_CONFIGURE_ACCOUNTS_INFO_VALID_FILE="Plik poprawny. Konta o istniejących nazwach zostaną pominięte."
+CLI_CONFIGURE_ACCOUNTS_CHOICE_IMPORT="Importować?"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_IMPORT_STATS="Zakończono. Zaimportowano: %s, Pominięto: %s"
+
+# Export
+CLI_CONFIGURE_ACCOUNTS_INFO_EXPORT_SECURE="Eksport bezpieczny (hasła zostaną zaszyfrowane Twoim hasłem)."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_FILENAME="Nazwa pliku wyjściowego"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_SET_ENC_PASS="Ustaw hasło szyfrowania pliku"
+CLI_CONFIGURE_ACCOUNTS_WARN_PASS_EMPTY_DIFF="Hasła puste lub różne."
+CLI_CONFIGURE_ACCOUNTS_INFO_PROCESSING="Przetwarzanie..."
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_EXPORTED="Zapisano do pliku: %s"
+
+# Delete All
+CLI_CONFIGURE_ACCOUNTS_WARN_DESTRUCTIVE="UWAGA: To jest operacja destrukcyjna!"
+CLI_CONFIGURE_ACCOUNTS_WARN_WIPE_INFO="Zostanie wyczyszczony plik accounts.json oraz tablice w e-mail.lua."
+CLI_CONFIGURE_ACCOUNTS_CHOICE_CONFIRM_WIPE="Czy na pewno chcesz usunąć WSZYSTKIE konta?"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_WIPED="Wszystkie konta zostały usunięte. Konfiguracja jest czysta."
+CLI_CONFIGURE_ACCOUNTS_INFO_WIPE_CANCEL="Operacja anulowana."
+
+# Manage Account Sub-menu
+CLI_CONFIGURE_ACCOUNTS_INFO_MANAGING="Zarządzanie kontem: %s"
+CLI_CONFIGURE_ACCOUNTS_PROMPT_ACTION="Wybierz akcję dla '%s': "
+CLI_CONFIGURE_ACCOUNTS_OPT_EDIT="Edytuj dane"
+CLI_CONFIGURE_ACCOUNTS_OPT_DELETE="Usuń konto"
+CLI_CONFIGURE_ACCOUNTS_OPT_UP="Przesuń w górę"
+CLI_CONFIGURE_ACCOUNTS_OPT_DOWN="Przesuń w dół"
+CLI_CONFIGURE_ACCOUNTS_OPT_BACK_MENU="↩️ Wróć do menu"
+
+# Edit Account
+CLI_CONFIGURE_ACCOUNTS_INFO_EDITING="Edycja konta '%s'. Wciśnij Enter, aby zachować starą wartość."
+CLI_CONFIGURE_ACCOUNTS_PROMPT_NEW_PASS_OPT="Nowe hasło (puste = bez zmian)"
+CLI_CONFIGURE_ACCOUNTS_CHOICE_NEW_COLOR="Chcesz wybrać nowy kolor?"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_UPDATED="Dane dla konta '%s' zostały zaktualizowane."
+
+# Delete Account
+CLI_CONFIGURE_ACCOUNTS_CHOICE_CONFIRM_DELETE="Czy na pewno chcesz usunąć konto '%s'?"
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_DELETED="Konto '%s' zostało usunięte."
+CLI_CONFIGURE_ACCOUNTS_INFO_DELETE_CANCEL="Anulowano usuwanie."
+
+# Move Account
+CLI_CONFIGURE_ACCOUNTS_WARN_ALREADY_TOP="Konto jest już na samej górze."
+CLI_CONFIGURE_ACCOUNTS_WARN_ALREADY_BOTTOM="Konto jest już na samym dole."
+CLI_CONFIGURE_ACCOUNTS_SUCCESS_MOVED="Przesunięto konto '%s'."
+
+# ==============================================================================
+# SKRYPT: 3.CLI_START_RESTART_scripts_and_conky.sh
+# ==============================================================================
+
+# --- SEKCJA 1: DETEKCJA TERMINALA I BŁĘDY OGÓLNE ---
+CLI_START_RESTART_TERM_FINISHED="Główny proces został zakończony. Naciśnij Enter, aby zamknąć to okno..."
+CLI_START_RESTART_ERR_PROJECT_DIR="Błąd: Nie można przejść do katalogu projektu: %s"
+CLI_START_RESTART_ERR_CANNOT_CONTINUE="Skrypt nie może kontynuować."
+CLI_START_RESTART_PRESS_ENTER="Naciśnij Enter, aby zakończyć..."
+CLI_START_RESTART_INVALID_OPTION="Nieprawidłowa opcja. Spróbuj ponownie."
+CLI_START_RESTART_DEBUG_MODE="Tryb debugowania włączony. Logowanie RAM i generowanie pliku .health przez Pythona będzie aktywne."
+
+# --- SEKCJA 2: WYBÓR TRYBU (IDLE vs POLLING) ---
+CLI_START_RESTART_MODE_TITLE="Wybierz tryb pracy backendu mailowego:"
+CLI_START_RESTART_MODE_IDLE_TITLE="Tryb IDLE:"
+CLI_START_RESTART_MODE_IDLE_DESC_1="• Nasłuchuje powiadomień od serwera (niższe zużycie zasobów)."
+CLI_START_RESTART_MODE_IDLE_DESC_2="• Polecany, jeśli nie wymagasz natychmiastowych powiadomień."
+CLI_START_RESTART_MODE_POLLING_TITLE="Tryb POLLING:"
+CLI_START_RESTART_MODE_POLLING_DESC_1="• Co kilka sekund aktywnie odpytuje serwer o nowe maile."
+CLI_START_RESTART_MODE_POLLING_DESC_2="• Zapewnia błyskawiczne powiadomienia, ale generuje większy ruch."
+CLI_START_RESTART_MODE_SELECT_PROMPT="Twój wybór: "
+CLI_START_RESTART_OPTION_IDLE="IDLE (nasłuch, zalecane)"
+CLI_START_RESTART_OPTION_POLLING="POLLING (ciągłe sprawdzanie)"
+CLI_START_RESTART_ERR_NO_MODE="Nie wybrano trybu. Skrypt zostaje przerwany."
+CLI_START_RESTART_MODE_SAVED="Wybór został zapisany. Skrypt będzie kontynuował uruchamianie..."
+
+# Konfiguracja Polling
+CLI_START_RESTART_POLLING_INTERVAL_PROMPT="Co ile sekund sprawdzać nowe maile?"
+CLI_START_RESTART_ERR_INVALID_INT="Wartość \"%s\" nie jest poprawną liczbą całkowitą większą od zera."
+
+# Powiadomienia o wyborze trybu
+CLI_START_RESTART_NOTIFY_IDLE_TITLE="⚡ Ustawiono tryb IDLE"
+CLI_START_RESTART_NOTIFY_IDLE_BODY="Backend będzie działał w trybie IMAP IDLE"
+CLI_START_RESTART_NOTIFY_POLLING_TITLE="⏳ Ustawiono tryb POLLING"
+CLI_START_RESTART_NOTIFY_POLLING_BODY="Backend będzie sprawdzał maile co %s s."
+
+# --- SEKCJA 3: BLOKADA PROCESU (SINGLE INSTANCE) ---
+CLI_START_RESTART_WARN_RUNNING="Skrypt jest już uruchomiony w tle."
+CLI_START_RESTART_PROMPT_STOP="Czy chcesz zatrzymać wszystkie działające procesy (Conky i backend)?"
+CLI_START_RESTART_LOG_STOPPING="Zatrzymywanie procesów..."
+CLI_START_RESTART_NOTIFY_STOPPED_TITLE="✅ Wyłączono"
+CLI_START_RESTART_NOTIFY_STOPPED_BODY="Procesy zakończone poprawnie."
+CLI_START_RESTART_LOG_STOPPED_SUCCESS="Wszystkie procesy zostały zatrzymane."
+
+# Restart po zatrzymaniu
+CLI_START_RESTART_PROMPT_RESTART="Czy chcesz teraz uruchomić widget ponownie?"
+CLI_START_RESTART_LOG_RESTARTING="Uruchamiam ponownie..."
+CLI_START_RESTART_NOTIFY_RESTARTING="🔁 Restartuję!"
+CLI_START_RESTART_LOG_FINISHED_NO_RESTART="Zakończono. Widget nie został ponownie uruchomiony."
+
+# --- SEKCJA 4: WATCHDOGI I SPRAWDZANIE PLIKÓW ---
+CLI_START_RESTART_NOTIFY_MISSING_PY_TITLE="❗ Brak pliku"
+CLI_START_RESTART_NOTIFY_MISSING_PY_BODY="Nie znaleziono %s."
+CLI_START_RESTART_ERR_MISSING_PY="Nie znaleziono pliku %s."
+CLI_START_RESTART_NOTIFY_WATCHDOG_TITLE="⚠️ Restart Conky"
+CLI_START_RESTART_NOTIFY_WATCHDOG_BODY="Proces %s przekroczył %s MB RAM."
+
+# --- SEKCJA 5: ŚRODOWISKO PYTHON (VENV & LIBS) ---
+CLI_START_RESTART_LOG_LOCATION_CHANGED="Wykryto zmianę lokalizacji projektu. Naprawiam..."
+CLI_START_RESTART_LOG_MISSING_LIBS="Brak wymaganych bibliotek w venv. Naprawiam..."
+CLI_START_RESTART_NOTIFY_VENV_FIX_TITLE="🛠️ Naprawa venv"
+CLI_START_RESTART_NOTIFY_VENV_FIX_BODY="Konfiguruję środowisko..."
+CLI_START_RESTART_LOG_VENV_CONFIGURING="Wykryto zmianę lokalizacji lub brak środowiska. Konfiguruję..."
+CLI_START_RESTART_ERR_VENV_CREATE="Nie udało się utworzyć środowiska Python venv! Upewnij się, że masz zainstalowany pakiet python3-venv."
+CLI_START_RESTART_LOG_INSTALL_LOCAL="Instaluję biblioteki z lokalnego folderu lib..."
+CLI_START_RESTART_ERR_INSTALL_LOCAL="Błąd instalacji bibliotek z folderu localnego 'lib' (%s)!"
+CLI_START_RESTART_LOG_INSTALL_NET="Brak folderu lib. Pobieram biblioteki z internetu..."
+CLI_START_RESTART_ERR_INSTALL_NET="Błąd pobierania bibliotek z internetu."
+CLI_START_RESTART_LOG_VENV_UPDATED="Środowisko Python zostało zaktualizowane."
+CLI_START_RESTART_LOG_VENV_ACTIVATE="Aktywuję środowisko Python venv..."
+CLI_START_RESTART_NOTIFY_VENV_ACTIVE_TITLE="🐍 Virtualenv"
+CLI_START_RESTART_NOTIFY_VENV_ACTIVE_BODY="Aktywuję środowisko Python venv..."
+
+# --- SEKCJA 6: URUCHAMIANIE BACKENDU (STARTUP) ---
+CLI_START_RESTART_LOG_START_PYTHON="Uruchamiam backend Pythona..."
+CLI_START_RESTART_LOG_WAIT_CACHE="Oczekuję na wygenerowanie pierwszego pliku cache przez backend..."
+CLI_START_RESTART_NOTIFY_WAIT_TITLE="⏳ Oczekiwanie"
+CLI_START_RESTART_NOTIFY_WAIT_BODY="Czekam na utworzenie %s..."
+
+# Sukces
+CLI_START_RESTART_NOTIFY_SUCCESS_TITLE="✅ Python działa"
+CLI_START_RESTART_NOTIFY_SUCCESS_BODY="Backend utworzył plik cache w %s s."
+CLI_START_RESTART_LOG_SUCCESS_CACHE="Backend Pythona pomyślnie utworzył plik cache: %s"
+
+# Błąd
+CLI_START_RESTART_NOTIFY_FAIL_TITLE="❌ Błąd uruchamiania!"
+CLI_START_RESTART_NOTIFY_FAIL_BODY="Nie utworzono %s."
+CLI_START_RESTART_ERR_FAIL_CACHE="Nie utworzono pliku cache. Backend Pythona zakończył się błędem. Sprawdź logi powyżej."
+
+# ==============================================================================
+# Skrypt: CLI_Configure_avatars.sh
+# ==============================================================================
+
+# --- Wspólne / Prompty ---
+CLI_CONFIGURE_AVATARS_PRESS_ENTER="Naciśnij Enter, aby zamknąć..."
+CLI_CONFIGURE_AVATARS_PRESS_ENTER_CONTINUE="Naciśnij Enter..."
+CLI_CONFIGURE_AVATARS_YES_NO="T/N"
+CLI_CONFIGURE_AVATARS_INVALID_OPTION="Nieprawidłowa opcja. Spróbuj ponownie."
+CLI_CONFIGURE_AVATARS_UNKNOWN_OPT="Nieznana opcja."
+CLI_CONFIGURE_AVATARS_INVALID_SEL="Nieprawidłowy wybór."
+
+# --- Obsługa JSON (Baza danych) ---
+CLI_CONFIGURE_AVATARS_JSON_CORRUPTED="Plik konfiguracyjny JSON jest uszkodzony."
+CLI_CONFIGURE_AVATARS_RESET_CONFIRM="Czy chcesz go zresetować (stary zostanie jako .bak)?"
+CLI_CONFIGURE_AVATARS_RESET_SUCCESS="Zresetowano plik konfiguracyjny."
+CLI_CONFIGURE_AVATARS_RESET_FAIL="Nie można kontynuować z uszkodzonym plikiem. Napraw go ręcznie."
+CLI_CONFIGURE_AVATARS_MISSING_JQ="Brak 'jq'. Zainstaluj: sudo apt install jq"
+CLI_CONFIGURE_AVATARS_DB_EMPTY="Baza jest pusta."
+
+# --- Operacje na plikach (Usuwanie) ---
+CLI_CONFIGURE_AVATARS_DB_ENTRY_REMOVED="Usunięto wpis z bazy."
+CLI_CONFIGURE_AVATARS_IMAGE_FILE="Plik graficzny: %s"
+CLI_CONFIGURE_AVATARS_DELETE_FILE_PROMPT="Czy usunąć ten plik z dysku?"
+CLI_CONFIGURE_AVATARS_FILE_DELETED="Plik usunięty."
+CLI_CONFIGURE_AVATARS_EMPTY_FOLDER_REMOVED="Usunięto pusty folder kategorii."
+CLI_CONFIGURE_AVATARS_FILE_KEPT="Plik zachowano."
+
+# --- Importowanie Obrazów ---
+CLI_CONFIGURE_AVATARS_SELECTING_IMG="Wybieranie grafiki dla: %s"
+CLI_CONFIGURE_AVATARS_TAB_HINT="(Użyj TAB, aby dopełnić ścieżkę, lub wciśnij ENTER aby anulować)"
+CLI_CONFIGURE_AVATARS_ENTER_PATH="Podaj ścieżkę do pliku graficznego"
+CLI_CONFIGURE_AVATARS_FILE_NOT_FOUND="Plik nie istnieje: %s"
+CLI_CONFIGURE_AVATARS_COPY_PROMPT="Skopiować plik do folderu projektu (Kategorie)?"
+CLI_CONFIGURE_AVATARS_CATS_AVAILABLE="Dostępne kategorie:"
+CLI_CONFIGURE_AVATARS_ENTER_CAT="Wpisz nazwę kategorii (lub nową)"
+CLI_CONFIGURE_AVATARS_OVERWRITE_PROMPT="Plik '%s' już istnieje w '%s'. Nadpisać?"
+
+# --- Główny Interfejs i Lista ---
+CLI_CONFIGURE_AVATARS_TITLE="--- Zupix Avatar Manager v4.7 (CLI) ---"
+CLI_CONFIGURE_AVATARS_PROJECT_DIR="Katalog projektu: %s"
+CLI_CONFIGURE_AVATARS_CAT_EXT="Zewnętrzne / Inne"
+CLI_CONFIGURE_AVATARS_CAT_ROOT="Ogólne (Root)"
+
+# --- Menu Główne (Akcje) ---
+CLI_CONFIGURE_AVATARS_ACTIONS="Dostępne akcje:"
+CLI_CONFIGURE_AVATARS_ACTION_ADD="  a) ➕ Dodaj nowy wpis"
+CLI_CONFIGURE_AVATARS_ACTION_QUIT="  q) ❌ Wyjdź"
+CLI_CONFIGURE_AVATARS_CHOOSE="Wybierz numer (edycja/usuwanie) lub akcję [a/q]: "
+CLI_CONFIGURE_AVATARS_GOODBYE="Do widzenia!"
+
+# --- Dodawanie Wpisu ---
+CLI_CONFIGURE_AVATARS_ENTER_EMAIL="Wpisz adres e-mail (lub 'default')"
+CLI_CONFIGURE_AVATARS_EMAIL_EXISTS="Ten mail już istnieje. Wybierz go z listy, aby edytować."
+CLI_CONFIGURE_AVATARS_ADDED="Dodano: %s"
+
+# --- Edycja Wpisu ---
+CLI_CONFIGURE_AVATARS_EDIT_TITLE="Edycja wpisu: "
+CLI_CONFIGURE_AVATARS_CURRENT_FILE="Obecny plik: %s"
+CLI_CONFIGURE_AVATARS_OPT_CHANGE="  1) 🖼️  Zmień obrazek"
+CLI_CONFIGURE_AVATARS_OPT_DELETE="  2) 🗑️  Usuń ten wpis"
+CLI_CONFIGURE_AVATARS_OPT_CANCEL="  0) ↩️  Anuluj"
+CLI_CONFIGURE_AVATARS_CHOICE="Wybór: "
+CLI_CONFIGURE_AVATARS_UPDATED="Zaktualizowano."
+CLI_CONFIGURE_AVATARS_CONFIRM_DELETE="Czy na pewno usunąć wpis dla '%s'?"
+CLI_CONFIGURE_AVATARS_CANCELLED="Anulowano."
+
+# ==============================================================================
+# Skrypt: CLI_Mark_n_messages_as_unread.sh
+# ==============================================================================
+# --- Terminal i System ---
+CLI_MARK_N_MESSAGES_AS_UNREAD_TERMINAL_CLOSE="Skrypt zakończył działanie. Naciśnij Enter, aby zamknąć to okno..."
+CLI_MARK_N_MESSAGES_AS_UNREAD_ERR_CD_PROJECT="Błąd: Nie można przejść do katalogu projektu: %s"
+CLI_MARK_N_MESSAGES_AS_UNREAD_PRESS_ENTER="Naciśnij Enter..."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PRESS_ENTER_EXIT="Naciśnij Enter, aby zakończyć..."
+
+# --- Autoryzacja (Szyfrowanie) ---
+CLI_MARK_N_MESSAGES_AS_UNREAD_DETECTED_ENCRYPTED="Wykryto zaszyfrowane konta."
+CLI_MARK_N_MESSAGES_AS_UNREAD_ENTER_PASS="Podaj hasło główne (próba %s/3): "
+CLI_MARK_N_MESSAGES_AS_UNREAD_PASS_EMPTY="Nie podano hasła."
+CLI_MARK_N_MESSAGES_AS_UNREAD_AUTH_SUCCESS="Autoryzacja pomyślna."
+CLI_MARK_N_MESSAGES_AS_UNREAD_AUTH_FAIL="Błąd: Nieprawidłowe hasło główne."
+CLI_MARK_N_MESSAGES_AS_UNREAD_AUTH_TOO_MANY="Zbyt wiele nieudanych prób autoryzacji. Przerywam."
+
+# --- Interfejs Użytkownika ---
+CLI_MARK_N_MESSAGES_AS_UNREAD_DESC="Ten skrypt oznaczy określoną liczbę najnowszych maili jako nieprzeczytane na każdym skonfigurowanym koncie."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PROMPT_COUNT="Ile maili oznaczyć na koncie?"
+CLI_MARK_N_MESSAGES_AS_UNREAD_ERR_INVALID_COUNT="Nieprawidłowa wartość: '%s'. Proszę podać liczbę całkowitą większą od zera."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PROGRESS_LABEL="Postęp"
+
+# --- Logika Pythona (Komunikaty przekazywane do skryptu wewnętrznego) ---
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_NO_FILE="Brak pliku z kontami: %s"
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_NO_ACCOUNTS="Brak kont w pliku accounts.json!"
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_INFO_NO_WORK="Brak pracy do wykonania (puste INBOXy lub błędy)."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_DECRYPT="[%s]: Błąd deszyfrowania hasła."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_INBOX_RW="[%s]: Nie można otworzyć INBOX w trybie zapisu."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_FETCH="[%s]: Nie można pobrać listy maili."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_INFO_EMPTY="[%s]: Brak wiadomości do oznaczenia."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_OK_MARKED="[%s]: Oznaczono jako nieprzeczytane --> %d wiadomości."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_SERVER="[%s]: Błąd serwera przy oznaczaniu."
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_EXCEPTION="[%s]: Wyjątek: %s"
+CLI_MARK_N_MESSAGES_AS_UNREAD_PY_ERR_GENERAL="[%s]: Wystąpił błąd: %s"
+
+# --- Zakończenie ---
+CLI_MARK_N_MESSAGES_AS_UNREAD_FINISHED="Zakończono oznaczanie maili."
+
+# ==============================================================================
+# Skrypt: CLI_Mark_all_messages_as_read.sh
+# ==============================================================================
+# --- Terminal i System ---
+CLI_MARK_ALL_MESSAGES_AS_READ_TERMINAL_CLOSE="Skrypt zakończył działanie. Naciśnij Enter, aby zamknąć to okno..."
+CLI_MARK_ALL_MESSAGES_AS_READ_ERR_CD_PROJECT="Błąd: Nie można przejść do katalogu projektu: %s"
+CLI_MARK_ALL_MESSAGES_AS_READ_PRESS_ENTER="Naciśnij Enter..."
+CLI_MARK_ALL_MESSAGES_AS_READ_PRESS_ENTER_EXIT="Naciśnij Enter, aby zakończyć..."
+
+# --- Autoryzacja (Szyfrowanie) ---
+CLI_MARK_ALL_MESSAGES_AS_READ_DETECTED_ENCRYPTED="Wykryto zaszyfrowane konta."
+CLI_MARK_ALL_MESSAGES_AS_READ_ENTER_PASS="Podaj hasło główne (próba %s/3): "
+CLI_MARK_ALL_MESSAGES_AS_READ_PASS_EMPTY="Nie podano hasła."
+CLI_MARK_ALL_MESSAGES_AS_READ_AUTH_SUCCESS="Autoryzacja pomyślna."
+CLI_MARK_ALL_MESSAGES_AS_READ_AUTH_FAIL="Błąd: Nieprawidłowe hasło główne."
+CLI_MARK_ALL_MESSAGES_AS_READ_AUTH_TOO_MANY="Zbyt wiele nieudanych prób autoryzacji. Przerywam."
+
+# --- Interfejs Użytkownika ---
+CLI_MARK_ALL_MESSAGES_AS_READ_PROGRESS_LABEL="Postęp"
+CLI_MARK_ALL_MESSAGES_AS_READ_START_MARKING="Rozpoczynam oznaczanie wszystkich nieprzeczytanych wiadomości jako przeczytane..."
+
+# --- Logika Pythona (Komunikaty) ---
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_NO_FILE="Brak pliku z kontami: %s"
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_NO_ACCOUNTS="Brak kont w pliku accounts.json!"
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_DECRYPT="[%s]: Błąd deszyfrowania hasła."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_INBOX_RW="[%s]: Nie można otworzyć INBOX w trybie zapisu."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_FETCH="[%s]: Nie można pobrać listy nieprzeczytanych wiadomości."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_INFO_NO_MSGS="[%s]: Brak nieprzeczytanych wiadomości do oznaczenia."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_OK_MARKED="[%s]: Oznaczono jako przeczytane --> %d wiadomości."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_SERVER="[%s]: Wystąpił błąd serwera podczas oznaczania wiadomości."
+CLI_MARK_ALL_MESSAGES_AS_READ_PY_ERR_CRITICAL="[%s]: Wystąpił krytyczny błąd: %s"
+
+# --- Zakończenie ---
+CLI_MARK_ALL_MESSAGES_AS_READ_FINISHED="Zakończono oznaczanie wszystkich maili."
+
+# ==============================================================================
+# Skrypt: CLI_Change_layout_and_scaling.sh
+# ==============================================================================
+# --- Terminal i System ---
+CLI_CHANGE_LAYOUT_TERMINAL_CLOSE="Skrypt zakończył działanie. Naciśnij Enter, aby zamknąć to okno..."
+CLI_CHANGE_LAYOUT_ERR_DIR="Błąd katalogu"
+CLI_CHANGE_LAYOUT_LOCK_FAIL="Inna instancja działa!"
+
+# --- ASCII Podgląd (Nagłówki) ---
+CLI_CHANGE_LAYOUT_PREVIEW_HEADER="UKŁADY 4K (Oryginalne, duże)"
+CLI_CHANGE_LAYOUT_PREVIEW_FOOTER_HINT="(więcej układów poniżej - przewijaj strzałkami, 'q' aby wyjść)"
+CLI_CHANGE_LAYOUT_PREVIEW_FULLHD_TITLE="UKŁADY FullHD (Ręcznie zmniejszone)"
+CLI_CHANGE_LAYOUT_PREVIEW_FULLHD_DESC="(Układy są wizualnie takie same jak 4K, ale mają\n mniejsze wymiary i czcionki zdefiniowane w kodzie Lua)"
+CLI_CHANGE_LAYOUT_PREVIEW_CLOSE_HINT="(Wciśnij 'q', aby zamknąć podgląd i przejść dalej)"
+
+# --- Menu Główne i Wybór ---
+CLI_CHANGE_LAYOUT_TITLE="KONFIGURATOR CONKY (CLI)"
+CLI_CHANGE_LAYOUT_PROMPT_PREVIEW="Czy chcesz zobaczyć podgląd układów (ASCII)? [t/N]: "
+CLI_CHANGE_LAYOUT_SELECT_LAYOUT="Wybierz numer układu: "
+CLI_CHANGE_LAYOUT_OPT_EXIT="❌WYJŚCIE"
+
+# --- Wprowadzanie Danych ---
+CLI_CHANGE_LAYOUT_INPUT_MAILS="Liczba maili"
+CLI_CHANGE_LAYOUT_INPUT_SCALE="Skala (%)"
+CLI_CHANGE_LAYOUT_INPUT_WIDTH="Szerokość bloku maili (px)"
+CLI_CHANGE_LAYOUT_ERR_INT="Podaj liczbę całkowitą!"
+
+# --- Zapis i Podsumowanie ---
+CLI_CHANGE_LAYOUT_SAVING="Zapisywanie konfiguracji..."
+CLI_CHANGE_LAYOUT_DONE="GOTOWE!"
+CLI_CHANGE_LAYOUT_SUMMARY_LAYOUT="Układ: %s"
+CLI_CHANGE_LAYOUT_SUMMARY_MAILS_WIDTH="Maili: %s, Szerokość: %spx"
+CLI_CHANGE_LAYOUT_SUMMARY_SCALE_DIMS="Skala: %s%%, Nowe wymiary: %sx%s"
+CLI_CHANGE_LAYOUT_AGAIN_PROMPT="Chcesz skonfigurować ponownie? [t/N]: "
+
+# ==============================================================================
+# Skrypt: CLI_Change_displayed_account.sh
+# ==============================================================================
+# --- Systemowe / Błędy ---
+CLI_CHANGE_DISPLAYED_ACCOUNT_ERR_CD="Błąd: Nie można przejść do katalogu projektu: %s"
+CLI_CHANGE_DISPLAYED_ACCOUNT_PRESS_ENTER="Naciśnij Enter..."
+CLI_CHANGE_DISPLAYED_ACCOUNT_PRESS_ENTER_EXIT="Naciśnij Enter, aby zakończyć..."
+CLI_CHANGE_DISPLAYED_ACCOUNT_ERR_JQ="Narzędzie 'jq' nie jest zainstalowane. Proszę je doinstalować."
+CLI_CHANGE_DISPLAYED_ACCOUNT_ERR_NO_FILE="Brak pliku z kontami: %s"
+CLI_CHANGE_DISPLAYED_ACCOUNT_ERR_NO_ACCOUNTS="Nie znaleziono żadnych kont w %s"
+
+# --- Menu i Opcje ---
+CLI_CHANGE_DISPLAYED_ACCOUNT_HEADER="Wybierz konto, które ma być wyświetlane w Conky:"
+CLI_CHANGE_DISPLAYED_ACCOUNT_PROMPT="Wpisz numer opcji: "
+CLI_CHANGE_DISPLAYED_ACCOUNT_OPT_MULTI="Multi-konto (wszystkie)"
+CLI_CHANGE_DISPLAYED_ACCOUNT_OPT_EXIT="Wyjdź"
+CLI_CHANGE_DISPLAYED_ACCOUNT_INVALID="Nieprawidłowa opcja. Spróbuj ponownie."
+
+# --- Sukces i Powiadomienia ---
+CLI_CHANGE_DISPLAYED_ACCOUNT_SWITCHED="Przełączono na: %s"
+CLI_CHANGE_DISPLAYED_ACCOUNT_NOTIFY_TITLE="Zupix-Py2Lua-Mail-conky"
+CLI_CHANGE_DISPLAYED_ACCOUNT_NOTIFY_BODY="Wybrano: %s"
+CLI_CHANGE_DISPLAYED_ACCOUNT_FINISHED="Zakończono."
+
+

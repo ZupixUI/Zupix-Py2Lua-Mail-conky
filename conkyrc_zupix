@@ -6,7 +6,7 @@
 local project_root = debug.getinfo(1, "S").source:match("@(.*/)") or "./"
 
 -- 2. Budujemy pełną ścieżkę do skryptu Lua w podkatalogu 'lua/'
-local lua_script_path = project_root .. "lua/e-mail.lua"
+local lua_script_path = project_root .. "core/lua/e-mail.lua"
 -- ============================================================
 
 conky.config = {
@@ -32,7 +32,7 @@ conky.config = {
     own_window_argb_visual  = true,                 -- (true/false) Włącza kanał alfa (ARGB) do obsługi przezroczystości.
 
     -- Parametr definiujący przezroczystość okna Conky (0 = całkowicie przezroczysty).
-    own_window_argb_value   = 0,                    -- (0–255) Poziom przezroczystości: 0 = całkowicie przezroczysty, 255 = pełne krycie.
+    own_window_argb_value   = 1,                    -- (0–255) Poziom przezroczystości: 0 = całkowicie przezroczysty, 255 = pełne krycie.
     own_window_colour       = '#000000',            -- Kolor tła, jeśli own_window_transparent = false.
 
     own_window_hints        = 'undecorated,sticky,below,skip_taskbar,skip_pager',
@@ -61,7 +61,7 @@ conky.config = {
     color4                  = '#bd93f9',            -- ${color4} – fioletowy (np. nagłówki).
 
     -- WYMIARY I POZYCJONOWANIE
-    minimum_width           = 800,                  -- Minimalna szerokość okna (w pikselach).
+    minimum_width           = 850,                  -- Minimalna szerokość okna (w pikselach).
     minimum_height          = 505,                  -- Minimalna wysokość okna (w pikselach).
     alignment               = 'bottom_right',
 

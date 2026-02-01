@@ -1,0 +1,1 @@
+scripts/GUI/2.Configure_accounts.sh

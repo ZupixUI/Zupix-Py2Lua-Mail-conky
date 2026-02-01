@@ -1,0 +1,1 @@
+scripts/GUI/Configure_avatars.sh

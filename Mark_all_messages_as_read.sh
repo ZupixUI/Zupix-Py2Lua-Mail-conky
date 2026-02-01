@@ -1,0 +1,1 @@
+scripts/GUI/Mark_all_messages_as_read.sh
